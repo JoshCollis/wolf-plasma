@@ -86,11 +86,13 @@ def main():
     ready = False
     while True:
         desktop = children[1].poll()
-        if desktop is not None:
-            return desktop if desktop >= 0 else 128 - desktop
+        # X loss can make Plasma exit cleanly before our next poll. It is still
+        # a failed stream/session, not a successful desktop logout.
         if children[0].poll() is not None:
             print("Xwayland exited while Plasma was running", flush=True)
             return 1
+        if desktop is not None:
+            return desktop if desktop >= 0 else 128 - desktop
         healthy = all(subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", name],
                                      stdout=subprocess.DEVNULL).returncode == 0
                       for name in ("kwin_x11", "plasmashell"))

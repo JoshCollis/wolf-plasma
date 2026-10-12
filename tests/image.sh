@@ -36,4 +36,8 @@ grep -qx 'Command=/bin/bash' /opt/wolf-plasma/Dracula.profile
 test -f /usr/share/aurorae/themes/Dracula/Dracularc
 grep -qx 'library=org.kde.kwin.aurorae' /usr/share/plasma/look-and-feel/Dracula/contents/defaults
 grep -qx 'theme=__aurorae__svg__Dracula' /usr/share/plasma/look-and-feel/Dracula/contents/defaults
+rpm -q gnupg2 pinentry-qt kwalletmanager5 kleopatra
+KDE_FULL_SESSION=true pinentry --version | grep -q '^pinentry-qt '
+command -v kleopatra
+test ! -d /home/retro/.gnupg/private-keys-v1.d
 printf '%s\n' 'Image assertions passed'

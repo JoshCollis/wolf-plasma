@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise the root init hook against real sockets in a disposable container."""
+import ast
 import os
+from types import SimpleNamespace
 from pathlib import Path
 import socket
 import stat
@@ -12,6 +14,16 @@ HOOK = '/etc/cont-init.d/05-plasma-runtime.sh'
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_xwayland_failure_wins_over_clean_desktop_exit(self):
+        # Replay simultaneous child exits through the actual supervision loop.
+        # Extract only the loop so no X server/session is launched by this unit test.
+        source = ast.parse(Path('/opt/wolf-plasma/session.py').read_text())
+        main = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+        main.body = [next(node for node in reversed(main.body) if isinstance(node, ast.While))]
+        namespace = {'children': [SimpleNamespace(poll=lambda: -15), SimpleNamespace(poll=lambda: 0)]}
+        exec(compile(ast.Module(body=[main], type_ignores=[]), 'session.py', 'exec'), namespace)
+        self.assertEqual(namespace['main'](), 1)
+
     def run_hook(self, directory, display=None):
         env = os.environ.copy()
         env.pop('WOLF_PLASMA_PARENT_WAYLAND', None)

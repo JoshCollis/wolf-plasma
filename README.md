@@ -68,6 +68,20 @@ Brave setup runs in the background. If it fails, run `wolf-plasma-brave` to retr
 Its log is `~/.local/state/wolf-plasma/brave-bootstrap.log`. Manage application
 updates through Discover or `flatpak update --user`.
 
+## GPG-backed wallets
+
+Kleopatra, KWallet Manager and Qt Pinentry are included. Fedora's Pinentry wrapper
+selects the graphical Qt dialog in the Plasma session. Session startup refreshes
+the GPG agent's saved display and Xauthority environment without replacing user
+GPG configuration.
+
+Create or import a personal, encryption-capable key in Kleopatra, then select it
+when creating a GPG-encrypted wallet in KWallet Manager. A signing-only key is not
+sufficient. Keys remain in `~/.gnupg` (or your custom `GNUPGHOME`), and wallet files
+remain in the persistent home. No keys or passphrases are supplied by the image.
+Unlocking uses a graphical passphrase prompt; automatic PAM login unlocking is
+not configured for Wolf sessions.
+
 ## Publishing
 
 GitHub Actions builds and tests pull requests. Successful builds on `main`

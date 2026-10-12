@@ -52,6 +52,7 @@ test "$(kreadconfig6 --file kdeglobals --group Icons --key Theme)" = "$expected_
 display_info=$(xdpyinfo)
 grep 'dimensions:' <<< "$display_info"
 grep -q '1280x720 pixels' <<< "$display_info"
+python3 /tests/gnupg.py
 # Subsequent seed must preserve customizations and data, without another global-theme apply.
 kwriteconfig6 --file kdeglobals --group Icons --key Theme user-choice
 printf 'persistent\n' > "$HOME/Documents/persistence.txt"
@@ -82,7 +83,11 @@ rc=$?
 set -e
 session=''
 if [[ ${FAILURE_TEST:-} = xwayland ]]; then
-    test "$rc" != 0
+    if [[ $rc == 0 ]]; then
+        printf '%s\n' 'Session incorrectly reported success after Xwayland was killed'
+        cat /tmp/plasma.log
+        exit 1
+    fi
 else
     test "$rc" = 143
 fi

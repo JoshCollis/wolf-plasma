@@ -48,7 +48,7 @@ RUN source /etc/os-release && test "$ID" = fedora && \
 COPY --from=themes /assets/ /usr/share/
 COPY overlay/ /
 COPY LICENSE THIRD-PARTY.md /usr/share/doc/wolf-plasma/
-RUN dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts && dnf clean all && \
+RUN dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra && dnf clean all && \
     ostree --repo=/var/lib/flatpak/repo init --mode=bare-user-only && \
     chmod 0755 /opt/gow/startup.sh /opt/wolf-plasma/*.sh /opt/wolf-plasma/*.py \
       /usr/local/bin/wolf-plasma-brave /etc/cont-init.d/05-plasma-runtime.sh \
