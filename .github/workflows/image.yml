@@ -1,0 +1,106 @@
+name: image
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '23 5 * * 1'
+permissions:
+  contents: read
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Lint
+        run: bash tests/lint.sh
+      - name: Resolve current official Fedora base
+        id: base
+        env:
+          BASE: ghcr.io/games-on-whales/base-app:fedora
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          docker pull "$BASE"
+          digest=$(docker image inspect "$BASE" --format '{{index .RepoDigests 0}}')
+          echo "image=$digest" >> "$GITHUB_OUTPUT"
+          echo "digest=${digest#*@}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${OWNER,,}/wolf-plasma" >> "$GITHUB_ENV"
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
+        with:
+          images: ${{ env.image }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+            type=sha,format=long,suffix=-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Build local test image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          platforms: linux/amd64
+          pull: true
+          load: true
+          tags: wolf-plasma:test
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ steps.base.outputs.image }}
+            BASE_DIGEST=${{ steps.base.outputs.digest }}
+            IMAGE_SOURCE=https://github.com/${{ github.repository }}
+            IMAGE_REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Refresh RPMs/EOL check even when the published base digest hasn't changed.
+          no-cache-filters: stage-1
+      - name: Image and software-headless Plasma checks
+        run: bash tests/run.sh wolf-plasma:test
+      - name: Export tested image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: docker save wolf-plasma:test | gzip > tested-image.tar.gz
+      - name: Retain tested image for publisher
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tested-image
+          path: tested-image.tar.gz
+          compression-level: 0
+          retention-days: 1
+  publish:
+    needs: image
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tested-image
+      - name: Load exact tested image
+        run: docker load --input tested-image.tar.gz
+      - name: Login to GHCR
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the exact tested image
+        env:
+          TAGS: ${{ needs.image.outputs.tags }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            docker tag wolf-plasma:test "$tag"
+            docker push "$tag"
+          done <<< "$TAGS"

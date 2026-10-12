@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Retry Brave Setup
+Comment=Install Brave in persistent user Flatpak storage; also shows bootstrap progress
+Exec=wolf-plasma-brave
+Icon=system-software-install
+Terminal=true
+Categories=System;

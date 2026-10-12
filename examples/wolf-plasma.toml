@@ -1,0 +1,39 @@
+# Standalone application fragment for a SEPARATE test Wolf configuration.
+# Replace lowercase-owner and /absolute/path/to/new-plasma-home before use.
+# Match render node to Wolf's deployment. Wolf supplies its session sockets,
+# synthetic udev, input/GPU devices and NVIDIA libraries automatically.
+[[apps]]
+title = "Wolf Plasma"
+start_virtual_compositor = true
+# Optional deployment override (otherwise inherit Wolf's render node):
+# render_node = "/dev/dri/renderD128"
+
+[apps.runner]
+type = "docker"
+name = "WolfPlasma"
+image = "ghcr.io/lowercase-owner/wolf-plasma:latest"
+mounts = ["/absolute/path/to/new-plasma-home:/home/retro:rw"]
+devices = ["/dev/fuse:/dev/fuse:rw"]
+ports = []
+env = [
+  "PUID=1000", "PGID=1000", "UNAME=desktop", "HOME=/home/retro",
+  "TZ=UTC", "UMASK=022",
+  "PULSE_SERVER=unix:/run/user/wolf/pulse-socket",
+  "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/uinput /dev/fuse",
+]
+# Private IPC with adequate shm replaces the reference's host IPC.
+# Relaxed container namespace policy is for a trusted personal desktop only.
+# Add deployment-only Dns=["HOST_DNS_ADDRESS"] and DnsSearch=["HOST_SEARCH_DOMAIN"]
+# to HostConfig when needed; never bake private network details into the image.
+base_create_json = '''
+{
+  "HostConfig": {
+    "Privileged": false,
+    "ShmSize": 1073741824,
+    "SecurityOpt": ["seccomp=unconfined", "apparmor=unconfined"],
+    "CapAdd": ["SYS_ADMIN", "SYS_NICE", "SYS_PTRACE", "NET_RAW", "MKNOD", "NET_ADMIN"],
+    "MaskedPaths": ["/sys/firmware", "/sys/devices/virtual/powercap"],
+    "ReadonlyPaths": []
+  }
+}
+'''

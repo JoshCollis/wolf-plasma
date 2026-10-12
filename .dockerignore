@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!build/
+!build/**
+!overlay/
+!overlay/**
+!LICENSE
+!THIRD-PARTY.md

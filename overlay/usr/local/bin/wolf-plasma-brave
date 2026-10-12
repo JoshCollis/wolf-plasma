@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+state=${XDG_STATE_HOME:-$HOME/.local/state}/wolf-plasma
+mkdir -p "$state"
+exec 8>"$state/brave.lock"
+flock -n 8 || exit 0
+if [[ ${1:-} = --background ]]; then
+    exec >>"$state/brave-bootstrap.log" 2>&1
+fi
+notify() {
+    printf '%s\n' "$*"
+    if [[ -n ${DISPLAY:-} ]]; then
+        kdialog --passivepopup "$*" 10 >/dev/null 2>&1 || true
+    fi
+}
+# Do not reinstall intentionally removed Brave after a completed bootstrap.
+[[ ! -e $state/brave-v1 ]] || exit 0
+notify 'Setting up user Flathub and Brave. Desktop remains usable; see ~/.local/state/wolf-plasma/brave-bootstrap.log.'
+if timeout 120 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo; then
+    # Discover needs catalogue metadata, not just a remote and installed runtimes.
+    if ! timeout 180 flatpak update --user --appstream --noninteractive; then
+        notify 'Flathub catalogue refresh failed; retry flatpak update --user --appstream when online.'
+    fi
+else
+    notify 'Flathub setup failed/offline. Run wolf-plasma-brave to retry.'
+    exit 1
+fi
+if timeout 1800 flatpak install --user --noninteractive flathub com.brave.Browser; then
+    touch "$state/brave-v1"
+    notify 'Brave is ready in the application menu (user Flatpak).'
+else
+    notify 'Brave setup failed/offline. Run wolf-plasma-brave in Konsole or use Retry Brave Setup in the menu.'
+    exit 1
+fi
