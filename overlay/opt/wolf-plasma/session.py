@@ -7,7 +7,10 @@ import stat
 import subprocess
 import time
 
+from gpg_lifecycle import GpgLifecycle
+
 children = []
+gpg_lifecycle = None
 
 
 def stop(signum=None, frame=None):
@@ -25,6 +28,8 @@ def stop(signum=None, frame=None):
         except ProcessLookupError:
             pass
         child.wait()
+    if gpg_lifecycle is not None:
+        gpg_lifecycle.shutdown()
     if signum:
         raise SystemExit(128 + signum)
 
@@ -34,6 +39,7 @@ for sig in (signal.SIGTERM, signal.SIGINT):
 
 
 def main():
+    global gpg_lifecycle
     env = os.environ.copy()
     runtime = Path(env["XDG_RUNTIME_DIR"])
     info = runtime.stat()
@@ -44,6 +50,10 @@ def main():
         parent = str(runtime / parent)
     if not Path(parent).is_socket():
         raise RuntimeError(f"Wolf parent Wayland socket missing: {parent}")
+    # Hold the home lease before any desktop client can launch GPG, and until
+    # desktop clients and the home-scoped GPG daemons have been stopped.
+    gpg_lifecycle = GpgLifecycle(env)
+    gpg_lifecycle.start()
     # An auth cookie and no TCP listener; no xhost/access-control bypass.
     env["DISPLAY"] = ":0"
     env["XAUTHORITY"] = str(runtime / "Xauthority")

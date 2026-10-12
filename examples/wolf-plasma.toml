@@ -18,6 +18,9 @@ ports = []
 env = [
   "PUID=1000", "PGID=1000", "UNAME=desktop", "HOME=/home/retro",
   "TZ=UTC", "UMASK=022",
+  # Opt in ONLY after verifying local isolated per-profile home, no other users/
+  # containers/remote clients (including older images). See README GPG section.
+  # "WOLF_PLASMA_GPG_ISOLATED_HOME=1",
   "PULSE_SERVER=unix:/run/user/wolf/pulse-socket",
   "GOW_REQUIRED_DEVICES=/dev/input/* /dev/dri/* /dev/uinput /dev/fuse",
 ]

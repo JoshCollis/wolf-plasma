@@ -16,7 +16,7 @@ import ast
 from pathlib import Path
 import json
 import tomllib
-for file in [Path('build/install-themes.py'), Path('overlay/opt/wolf-plasma/session.py'), *Path('tests').glob('*.py')]:
+for file in [Path('build/install-themes.py'), *Path('overlay/opt/wolf-plasma').glob('*.py'), *Path('tests').glob('*.py')]:
     ast.parse(file.read_text(), filename=str(file))
 app = tomllib.loads(Path('examples/wolf-plasma.toml').read_text())['apps'][0]
 runner = app['runner']

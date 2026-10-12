@@ -82,6 +82,65 @@ remain in the persistent home. No keys or passphrases are supplied by the image.
 Unlocking uses a graphical passphrase prompt; automatic PAM login unlocking is
 not configured for Wolf sessions.
 
+### Container recreation and keyboxd locks
+
+The session supervisor leases the default `~/.gnupg` for the entire desktop
+lifetime (persistent `.wolf-plasma-lifecycle.lock`, never unlinked). It acquires
+that lease before starting desktop clients and, after stopping them, asks
+`gpgconf --homedir <default-home> --kill all` to cleanly stop this home's daemons.
+A second cooperating session or an already-running local GPG daemon prevents
+startup instead of taking over a live keyboxd lock. Shutdown is bounded; a crash
+or forced container stop still requires the next-start checks.
+
+**Cross-container automatic recovery is opt-in.** Set
+`WOLF_PLASMA_GPG_ISOLATED_HOME=1` in the Wolf application environment only after
+confirming all these deployment conditions:
+
+- The default home is on a local filesystem, dedicated to one Wolf profile.
+- No other running container (including an older image), host process, remote
+  client, backup restore, or independent GPG service accesses that home.
+- Only one desktop/container uses the home at a time; the old container has
+  fully stopped before its replacement starts. Do not enable it for NFS/CIFS or
+  another shared/distributed filesystem, or when mounting a host's personal home.
+
+This is an **operator isolation assertion**, not something the container can
+prove. Advisory `flock` excludes only cooperating processes that use the same
+lease inode. It does not prove a foreign Docker hostname is dead, nor exclude
+older images or remote clients. Without the assertion a stale/foreign keyboxd
+lock fails startup with an explanation; no lock is removed. Do not enable the
+flag merely to silence that error on an unknown/shared deployment.
+
+Recovery removes only `public-keys.d/pubring.db.lock`, after checking the lease,
+local daemons and same-host PID, owner/permissions, regular-file type, strict GPG
+owner record, unchanged contents/inode and directory identities. Symlink paths,
+malformed records, unexpected hardlinks, symlinked databases and unsafe permissions
+fail closed.
+GnuPG's normal two-link dotlock is accepted only with its matching `.#lk...`
+companion in the same directory; the companion is left untouched. The default
+`.gnupg` must be UID-owned and mode `0700`; unsafe homes are not chmodded or
+repaired automatically. Locks, configs and databases are not broadly cleaned.
+`pubring.db`, private keys and wallet files are never deleted or rewritten by
+recovery, and keyboxd/locking remain enabled.
+
+Any nonempty custom `GNUPGHOME` remains entirely user-managed: no lifecycle
+lease, automatic lock removal or shutdown is performed for it. Agent display
+refresh still respects that setting and `gpg-agent.conf`. Even a custom path
+aliasing the default disables management. A same-UID GPG daemon in any other
+home also conservatively blocks default-home takeover at startup. Shared-home
+and independent-service lifecycles need external coordination/manual diagnosis;
+this image is not a general-purpose GnuPG lock repair utility.
+
+The test suite uses only disposable keys/homes: actual `use-keyboxd`, real
+signing plus encryption subkeys, two forced-stop/SIGKILL recreations across
+three hostnames, unchanged private-key/config hashes, encrypt/decrypt, live lock
+and competing lease preservation, malformed/symlink refusal and clean shutdown.
+For the original failure reproduction against an older local image:
+
+```sh
+python3 tests/gpg-crash.py wolf-plasma:gpg-test --baseline # expected timeout/failure
+python3 tests/gpg-crash.py wolf-plasma:local             # expected pass
+```
+
 ## Publishing
 
 GitHub Actions builds and tests pull requests. Successful builds on `main`

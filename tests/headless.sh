@@ -18,6 +18,8 @@ export GAMESCOPE_WIDTH=1280 GAMESCOPE_HEIGHT=720
 sway --unsupported-gpu -c /tmp/test-sway.conf > /tmp/sway.log 2>&1 &
 parent=$!
 session=''
+# Enable the actual keyboxd backend in this disposable persistent profile.
+(umask 077; mkdir -p "$HOME/.gnupg"; printf 'use-keyboxd\n' > "$HOME/.gnupg/common.conf")
 cleanup() {
     if [[ -n $session ]]; then kill -TERM "$session" 2>/dev/null || true; wait "$session" 2>/dev/null || true; fi
     kill -TERM "$parent" 2>/dev/null || true
@@ -53,6 +55,8 @@ display_info=$(xdpyinfo)
 grep 'dimensions:' <<< "$display_info"
 grep -q '1280x720 pixels' <<< "$display_info"
 python3 /tests/gnupg.py
+gpg --batch --list-keys
+test -f "$HOME/.gnupg/public-keys.d/pubring.db.lock"
 # Subsequent seed must preserve customizations and data, without another global-theme apply.
 kwriteconfig6 --file kdeglobals --group Icons --key Theme user-choice
 printf 'persistent\n' > "$HOME/Documents/persistence.txt"
@@ -93,4 +97,7 @@ else
 fi
 ! pgrep -u "$(id -u)" -x Xwayland
 ! pgrep -u "$(id -u)" -x plasmashell
+! pgrep -u "$(id -u)" -x gpg-agent
+! pgrep -u "$(id -u)" -x keyboxd
+test ! -e "$HOME/.gnupg/public-keys.d/pubring.db.lock"
 printf '%s\n' 'Headless Plasma startup, defaults, idempotence, environment and teardown passed'

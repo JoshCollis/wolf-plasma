@@ -55,6 +55,7 @@ def main():
     assert 'XAUTHORITY=' + os.environ['XAUTHORITY'] in info
     with tempfile.TemporaryDirectory(prefix='gpg-test-', dir=os.environ['XDG_RUNTIME_DIR']) as home:
         env = dict(os.environ, GNUPGHOME=home, QT_QPA_PLATFORM='xcb', KDE_FULL_SESSION='true')
+        (Path(home) / 'common.conf').write_text('use-keyboxd\n')
         config = Path(home) / 'gpg-agent.conf'
         config.write_text('default-cache-ttl 90\n# user configuration\n')
         before = config.read_bytes()
@@ -100,7 +101,7 @@ def main():
             if prompt is not None and prompt.poll() is None:
                 prompt.terminate()
                 prompt.communicate(timeout=10)
-            subprocess.run(['gpgconf', '--kill', 'gpg-agent'], env=env, check=True)
+            subprocess.run(['gpgconf', '--kill', 'all'], env=env, check=True)
     print('GPG session setup and user-configuration preservation passed')
 
 
