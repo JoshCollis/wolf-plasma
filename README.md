@@ -9,6 +9,7 @@ using Xwayland to display a Plasma X11 session inside Wolf. Supports `linux/amd6
 - Dracula Plasma, GTK and Kvantum themes, Dracula window decorations and Papirus-Dark icons.
 - Konsole with Fira Code, Bash completion, a coloured Git prompt and Fastfetch.
 - Dolphin, Kate, Ark, Plasma Settings and audio controls.
+- ClusterCut 0.4.4 (native X11), autostarting in the tray for clipboard sync.
 - Discover with Flathub; Brave installs as a user Flatpak on first launch.
 - Git, Python, Node.js/npm, GCC/G++, CMake, GDB, network diagnostics and archive tools.
 
@@ -24,8 +25,8 @@ bash tests/run.sh wolf-plasma:local
 ```
 
 Docker and network access are required for the build. Tests use disposable
-containers and a temporary volume. An optional Brave sandbox test downloads the
-browser and its runtime:
+containers, a temporary volume and an internal-only test network. An optional
+Brave sandbox test downloads the browser and its runtime:
 
 ```sh
 python3 tests/sandbox-run.py wolf-plasma:local
@@ -67,6 +68,36 @@ is hidden by default; `Alt+M` restores it.
 Brave setup runs in the background. If it fails, run `wolf-plasma-brave` to retry.
 Its log is `~/.local/state/wolf-plasma/brave-bootstrap.log`. Manage application
 updates through Discover or `flatpak update --user`.
+
+## Clipboard sync
+
+[ClusterCut](https://github.com/keithvassallomt/ClusterCut) starts minimized with
+each Plasma session, including existing profiles. Its upstream defaults enable
+automatic sending and receiving with paired devices. Open ClusterCut from the
+tray or application launcher and pair your client once; the image does not ship
+shared identities, PINs or trusted peers. Install ClusterCut on the client too:
+this is independent of Moonlight's clipboard support.
+
+Settings and pairing keys remain in the persistent home under
+`~/.config/app.clustercut.clustercut` (or the corresponding XDG path).
+Clipboard history uses memory and the application's cache directory; it should
+not be treated as durable storage. Existing preferences are not overwritten.
+Disable autostart in Plasma Settings → Autostart if you do not want clipboard
+sharing. Automatic sync can be switched off in ClusterCut; clipboard history and
+file transfers are also enabled by upstream defaults, so avoid pairing devices
+you do not trust.
+
+**Networking needs deployment configuration.** The image does not change Wolf's
+network mode or publish ports. ClusterCut uses UDP 4654 for sync, TCP 4654 for
+pairing and UDP 5353 multicast for mDNS discovery. A Docker bridge generally
+does not carry LAN discovery: publish TCP and UDP 4654 on the Wolf host, allow
+them only on your trusted LAN/VPN, and manually add the host's reachable address
+from the client. See the commented port example in
+[examples/wolf-plasma.toml](examples/wolf-plasma.toml). Multiple desktops need
+distinct host ports. LAN-attached networking can provide discovery instead,
+but requires a deliberate deployment choice; do not expose these ports publicly.
+Do not use Docker's `--network none` for ClusterCut: this release's local-IP
+detector requires a non-loopback interface and a default route.
 
 ## GPG-backed wallets
 

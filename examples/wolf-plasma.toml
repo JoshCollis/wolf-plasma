@@ -15,6 +15,11 @@ image = "ghcr.io/lowercase-owner/wolf-plasma:latest"
 mounts = ["/absolute/path/to/new-plasma-home:/home/retro:rw"]
 devices = ["/dev/fuse:/dev/fuse:rw"]
 ports = []
+# Optional ClusterCut manual pairing/sync through Docker bridge networking:
+# ports = ["4654:4654/tcp", "4654:4654/udp"]
+# Restrict host firewall access to your trusted LAN/VPN. mDNS LAN discovery does
+# not normally cross the bridge; manually add the Wolf host address in the client.
+# Use distinct host ports for multiple desktops; see README Clipboard sync.
 env = [
   "PUID=1000", "PGID=1000", "UNAME=desktop", "HOME=/home/retro",
   "TZ=UTC", "UMASK=022",

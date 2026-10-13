@@ -8,6 +8,18 @@ RUN curl -fSL --retry 3 --max-time 180 \
       https://codeload.github.com/dracula/gtk/tar.gz/71640b9456110f3bac2130d0b387a3154a9fb4d2 -o /tmp/dracula.tar.gz && \
     echo '434013c854e82b509e633a03270b755f2d4b098c49d46680cafd4959502f3543  /tmp/dracula.tar.gz' | sha256sum -c - && \
     python3 /tmp/install-themes.py /tmp/dracula.tar.gz /assets
+# Native X11 build: the upstream Flatpak does not support clipboard sync on X11.
+# Keep the matching source and licence alongside the unmodified GPLv3 binary.
+RUN curl -fSL --retry 3 --max-time 180 \
+      https://github.com/keithvassallomt/ClusterCut/releases/download/v0.4.4/ClusterCut-0.4.4-1.x86_64.rpm -o /tmp/clustercut.rpm && \
+    echo '30779025277a9de199eb5328e978164d5da8151729d1d5adeca5d1c301f59872  /tmp/clustercut.rpm' | sha256sum -c - && \
+    mkdir -p /assets/doc/wolf-plasma/clustercut && \
+    curl -fSL --retry 3 --max-time 180 \
+      https://codeload.github.com/keithvassallomt/ClusterCut/tar.gz/refs/tags/v0.4.4 \
+      -o /assets/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz && \
+    echo '7fa0a6bc869c2cc6ce9e6b5d720457df3f4fe20d1c909b1b0bdcbc1ec3878e31  /assets/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz' | sha256sum -c - && \
+    tar -xOf /assets/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz ClusterCut-0.4.4/LICENSE \
+      > /assets/doc/wolf-plasma/clustercut/LICENSE
 
 FROM ${BASE_IMAGE}
 ARG BASE_IMAGE
@@ -48,13 +60,15 @@ RUN source /etc/os-release && test "$ID" = fedora && \
 COPY --from=themes /assets/ /usr/share/
 COPY overlay/ /
 COPY LICENSE THIRD-PARTY.md /usr/share/doc/wolf-plasma/
-RUN dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra && dnf clean all && \
+RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \
+    dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra /tmp/clustercut.rpm && dnf clean all && \
     ostree --repo=/var/lib/flatpak/repo init --mode=bare-user-only && \
     chmod 0755 /opt/gow/startup.sh /opt/wolf-plasma/*.sh /opt/wolf-plasma/*.py \
       /usr/local/bin/wolf-plasma-brave /etc/cont-init.d/05-plasma-runtime.sh \
       /etc/cont-init.d/40-plasma-dbus.sh /etc/cont-init.d/45-plasma-shell.sh && \
     chmod 0644 /opt/wolf-plasma/Dracula.colorscheme /opt/wolf-plasma/Dracula.profile && \
     desktop-file-validate /usr/share/applications/wolf-plasma-brave.desktop && \
+    desktop-file-validate /etc/xdg/autostart/ClusterCut.desktop && \
     rm -rf /home/retro/.local && \
     rpm -qa | sort > /usr/share/wolf-plasma/packages.txt
 ENV UNAME=desktop UMASK=022 TZ=UTC LANG=en_US.UTF-8

@@ -20,6 +20,15 @@ The upstream licence is installed at `/usr/share/doc/wolf-plasma/dracula/LICENSE
 Plasma theme metadata declares GPL-3.0+; Aurorae metadata declares GPLv3.
 These assets are not covered by the project's MIT licence.
 
+## ClusterCut
+
+[keithvassallomt/ClusterCut](https://github.com/keithvassallomt/ClusterCut),
+version `0.4.4`, GPLv3. The unmodified upstream x86_64 RPM and matching source
+archive are pinned with SHA-256 checksums in the Dockerfile. Its licence and
+source archive (including build scripts and dependency lockfiles) are included
+at `/usr/share/doc/wolf-plasma/clustercut/`. Upstream source is also available at
+<https://github.com/keithvassallomt/ClusterCut/tree/v0.4.4>.
+
 ## Distribution packages
 
 KDE, GTK, Papirus, Kvantum, Flatpak and other Fedora packages retain their own

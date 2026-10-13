@@ -5,7 +5,7 @@ for hook in 10-setup_user 15-setup_devices 30-nvidia; do
     test -f "/etc/cont-init.d/$hook.sh"
 done
 for cmd in startplasma-x11 kwin_x11 plasmashell plasma-discover systemsettings dolphin konsole kate ark \
-    flatpak bwrap Xwayland xdpyinfo xrandr kwriteconfig6 kreadconfig6 \
+    flatpak bwrap Xwayland xdpyinfo xrandr kwriteconfig6 kreadconfig6 clustercut \
     ncdu ping traceroute ssh git curl wget jq rg tmux nano less rsync dig ip ss ps lsof strace file diff patch \
     tar gzip xz zstd zip unzip 7z python3 pip3 node npm gcc g++ make cmake pkg-config gdb; do
     command -v "$cmd"
@@ -40,4 +40,10 @@ rpm -q gnupg2 pinentry-qt kwalletmanager5 kleopatra
 KDE_FULL_SESSION=true pinentry --version | grep -q '^pinentry-qt '
 command -v kleopatra
 test ! -d /home/retro/.gnupg/private-keys-v1.d
+test "$(rpm -q --qf '%{VERSION}' cluster-cut)" = 0.4.4
+desktop-file-validate /etc/xdg/autostart/ClusterCut.desktop
+grep -qx 'Exec=env GDK_BACKEND=x11 /usr/bin/clustercut --minimized' /etc/xdg/autostart/ClusterCut.desktop
+test -s /usr/share/doc/wolf-plasma/clustercut/LICENSE
+test -s /usr/share/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz
+test ! -d /home/retro/.config/app.clustercut.clustercut
 printf '%s\n' 'Image assertions passed'

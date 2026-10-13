@@ -45,6 +45,31 @@ for ((i=0; i<300; i++)); do
 done
 pgrep -u "$(id -u)" -x plasmashell >/dev/null || { cat /tmp/plasma.log; exit 1; }
 pgrep -u "$(id -u)" -x kwin_x11 >/dev/null
+# Native ClusterCut must autostart on the same X11 desktop, including recreation.
+for ((i=0; i<300; i++)); do
+    if pgrep -u "$(id -u)" -x clustercut >/dev/null && ss -lun | grep -q ':4654 '; then break; fi
+    sleep 0.1
+done
+pid=$(pgrep -u "$(id -u)" -x clustercut)
+ss -lun | grep ':4654 '
+tr '\0' '\n' < "/proc/$pid/environ" | grep '^GDK_BACKEND=x11$'
+tr '\0' '\n' < "/proc/$pid/environ" | grep '^XDG_SESSION_TYPE=x11$'
+if tr '\0' '\n' < "/proc/$pid/environ" | grep -q '^WAYLAND_DISPLAY='; then exit 1; fi
+for ((i=0; i<100; i++)); do
+    if grep -q 'X11 clipboard change listener started (XFixes)' /tmp/ClusterCutLogs/clustercut.log.* 2>/dev/null; then break; fi
+    sleep 0.1
+done
+grep -q 'X11 session detected, using tauri-plugin-clipboard backend' /tmp/ClusterCutLogs/clustercut.log.*
+grep -q 'X11 clipboard change listener started (XFixes)' /tmp/ClusterCutLogs/clustercut.log.*
+ss -ltn | grep ':4654 '
+# The image must not share identities, and recreation must retain this profile's.
+identity="$HOME/.config/app.clustercut.clustercut/device_id"
+test -s "$identity"
+if [[ -f $HOME/.local/state/wolf-plasma/test-clustercut-identity ]]; then
+    cmp "$identity" "$HOME/.local/state/wolf-plasma/test-clustercut-identity"
+else
+    cp "$identity" "$HOME/.local/state/wolf-plasma/test-clustercut-identity"
+fi
 test "$(kreadconfig6 --file startkderc --group General --key systemdBoot)" = false
 test "$(kreadconfig6 --file "$HOME/.local/share/konsole/Dracula.profile" --group General --key Command)" = /bin/bash
 # Plasma 6.7 canonicalises the legacy Aurorae ID to the installed .v2 plugin.
@@ -97,6 +122,7 @@ else
 fi
 ! pgrep -u "$(id -u)" -x Xwayland
 ! pgrep -u "$(id -u)" -x plasmashell
+! pgrep -u "$(id -u)" -x clustercut
 ! pgrep -u "$(id -u)" -x gpg-agent
 ! pgrep -u "$(id -u)" -x keyboxd
 test ! -e "$HOME/.gnupg/public-keys.d/pubring.db.lock"

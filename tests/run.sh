@@ -12,15 +12,21 @@ python3 "$root/tests/gpg-crash.py" "$image"
 docker run --rm --network none -v "$root/tests:/tests:ro" "$image" 'bash /tests/shell.sh'
 # Recreate with the same disposable home: verify state across container lifetime.
 volume=$(docker volume create)
-trap 'docker volume rm "$volume" >/dev/null' EXIT
+network=''
+trap 'docker volume rm "$volume" >/dev/null; if [[ -n $network ]]; then docker network rm "$network" >/dev/null; fi' EXIT
+# ClusterCut's mDNS registration needs a non-loopback interface. An internal
+# disposable network supplies it without granting these desktop tests LAN/WAN access.
+# Its local-IP detector also needs a default route; the internal bridge still
+# blocks external traffic even with that route installed inside the container.
+network=$(docker network create --internal "wolf-plasma-test-${volume:0:12}")
 for pass in 1 2; do
     printf 'Headless container creation %s\n' "$pass"
-    docker run --rm --network none --security-opt seccomp=unconfined \
+    docker run --rm --network "$network" --cap-add NET_ADMIN --security-opt seccomp=unconfined \
         --security-opt apparmor=unconfined --shm-size 1g \
         -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
-        "$image" 'gosu "$UNAME" bash /tests/headless.sh'
+        "$image" 'ip route add default dev eth0 && gosu "$UNAME" bash /tests/headless.sh'
 done
-docker run --rm --network none --security-opt seccomp=unconfined \
+docker run --rm --network "$network" --cap-add NET_ADMIN --security-opt seccomp=unconfined \
     --security-opt apparmor=unconfined --shm-size 1g -e FAILURE_TEST=xwayland \
     -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
-    "$image" 'exec gosu "$UNAME" bash /tests/headless.sh'
+    "$image" 'ip route add default dev eth0 && exec gosu "$UNAME" bash /tests/headless.sh'
