@@ -42,7 +42,9 @@ command -v kleopatra
 test ! -d /home/retro/.gnupg/private-keys-v1.d
 test "$(rpm -q --qf '%{VERSION}' cluster-cut)" = 0.4.4
 desktop-file-validate /etc/xdg/autostart/ClusterCut.desktop
-grep -qx 'Exec=env GDK_BACKEND=x11 /usr/bin/clustercut --minimized' /etc/xdg/autostart/ClusterCut.desktop
+grep -qx 'Exec=env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/clustercut --minimized' /etc/xdg/autostart/ClusterCut.desktop
+desktop-file-validate /usr/share/applications/ClusterCut.desktop
+grep -qx 'Exec=env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/clustercut' /usr/share/applications/ClusterCut.desktop
 test -s /usr/share/doc/wolf-plasma/clustercut/LICENSE
 test -s /usr/share/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz
 test ! -d /home/retro/.config/app.clustercut.clustercut

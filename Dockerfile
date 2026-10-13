@@ -62,6 +62,7 @@ COPY overlay/ /
 COPY LICENSE THIRD-PARTY.md /usr/share/doc/wolf-plasma/
 RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \
     dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra /tmp/clustercut.rpm && dnf clean all && \
+    sed -i 's|^Exec=clustercut$|Exec=env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/clustercut|' /usr/share/applications/ClusterCut.desktop && \
     ostree --repo=/var/lib/flatpak/repo init --mode=bare-user-only && \
     chmod 0755 /opt/gow/startup.sh /opt/wolf-plasma/*.sh /opt/wolf-plasma/*.py \
       /usr/local/bin/wolf-plasma-brave /etc/cont-init.d/05-plasma-runtime.sh \
@@ -69,6 +70,7 @@ RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \
     chmod 0644 /opt/wolf-plasma/Dracula.colorscheme /opt/wolf-plasma/Dracula.profile && \
     desktop-file-validate /usr/share/applications/wolf-plasma-brave.desktop && \
     desktop-file-validate /etc/xdg/autostart/ClusterCut.desktop && \
+    desktop-file-validate /usr/share/applications/ClusterCut.desktop && \
     rm -rf /home/retro/.local && \
     rpm -qa | sort > /usr/share/wolf-plasma/packages.txt
 ENV UNAME=desktop UMASK=022 TZ=UTC LANG=en_US.UTF-8

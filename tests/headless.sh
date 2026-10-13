@@ -53,6 +53,7 @@ done
 pid=$(pgrep -u "$(id -u)" -x clustercut)
 ss -lun | grep ':4654 '
 tr '\0' '\n' < "/proc/$pid/environ" | grep '^GDK_BACKEND=x11$'
+tr '\0' '\n' < "/proc/$pid/environ" | grep '^WEBKIT_DISABLE_DMABUF_RENDERER=1$'
 tr '\0' '\n' < "/proc/$pid/environ" | grep '^XDG_SESSION_TYPE=x11$'
 if tr '\0' '\n' < "/proc/$pid/environ" | grep -q '^WAYLAND_DISPLAY='; then exit 1; fi
 for ((i=0; i<100; i++)); do

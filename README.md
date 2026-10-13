@@ -77,6 +77,8 @@ automatic sending and receiving with paired devices. Open ClusterCut from the
 tray or application launcher and pair your client once; the image does not ship
 shared identities, PINs or trusted peers. Install ClusterCut on the client too:
 this is independent of Moonlight's clipboard support.
+Both launchers set `WEBKIT_DISABLE_DMABUF_RENDERER=1` to avoid a blank WebKit UI
+in the container's X11 session.
 
 Settings and pairing keys remain in the persistent home under
 `~/.config/app.clustercut.clustercut` (or the corresponding XDG path).
