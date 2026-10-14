@@ -37,7 +37,8 @@ RUN dnf install -y --setopt=install_weak_deps=False \
       libselinux-devel libunwind-devel xcb-util-devel xcb-util-image-devel \
       xcb-util-wm-devel xcb-util-keysyms-devel xcb-util-renderutil-devel && dnf clean all
 WORKDIR /build
-RUN curl -fSL --retry 3 --max-time 180 \
+# TLS/connection resets are not retried by curl's default --retry policy.
+RUN curl -fSL --retry 3 --retry-all-errors --connect-timeout 30 --max-time 180 \
       https://xorg.freedesktop.org/archive/individual/xserver/xwayland-24.1.14.tar.xz -o source.tar.xz && \
     echo '4eb6b98d678299a4b96138d886345b294130695760345ef84596225a8224078a  source.tar.xz' | sha256sum -c - && \
     tar -xf source.tar.xz
