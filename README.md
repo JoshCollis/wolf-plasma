@@ -33,7 +33,10 @@ python3 tests/sandbox-run.py wolf-plasma:local
 ```
 
 The build uses Fedora packages from the base image's release and rejects a base
-past its declared support date.
+past its declared support date. Rootful Xwayland is built from checksum-pinned
+24.1.14 source with a narrow negotiated-refresh patch; Fedora advancing past
+that version intentionally fails the build pending revalidation. See
+[high-refresh support and acceptance](docs/high-refresh.md).
 
 ## Wolf configuration
 

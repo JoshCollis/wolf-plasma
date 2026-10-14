@@ -12,9 +12,10 @@ fi
 mkdir -p "$HOME/.local/state/wolf-plasma"
 # Headless test deliberately stays offline. Brave namespace/network checks are separate.
 touch "$HOME/.local/state/wolf-plasma/brave-v1"
-printf 'output HEADLESS-1 resolution 1280x720\nxwayland disable\n' > /tmp/test-sway.conf
 export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman LIBGL_ALWAYS_SOFTWARE=1
 export GAMESCOPE_WIDTH=1280 GAMESCOPE_HEIGHT=720
+export GAMESCOPE_REFRESH=${GAMESCOPE_REFRESH:-60}
+printf 'output HEADLESS-1 mode --custom 1280x720@%sHz\nxwayland disable\n' "$GAMESCOPE_REFRESH" > /tmp/test-sway.conf
 sway --unsupported-gpu -c /tmp/test-sway.conf > /tmp/sway.log 2>&1 &
 parent=$!
 session=''
@@ -80,6 +81,17 @@ test "$(kreadconfig6 --file kdeglobals --group Icons --key Theme)" = "$expected_
 display_info=$(xdpyinfo)
 grep 'dimensions:' <<< "$display_info"
 grep -q '1280x720 pixels' <<< "$display_info"
+python3 - <<'PY'
+import os
+import re
+import subprocess
+randr = subprocess.run(['xrandr', '--current'], capture_output=True, text=True, check=True).stdout
+current = next(line for line in randr.splitlines() if '*' in line)
+rate = float(re.search(r'([0-9.]+)\*', current)[1])
+assert current.split()[0] == '1280x720', randr
+assert abs(rate - int(os.environ['GAMESCOPE_REFRESH'])) < 1, randr
+print('Desktop current mode:', current.strip())
+PY
 python3 /tests/gnupg.py
 gpg --batch --list-keys
 test -f "$HOME/.gnupg/public-keys.d/pubring.db.lock"

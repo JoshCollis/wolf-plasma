@@ -6,3 +6,5 @@
 !overlay/**
 !LICENSE
 !THIRD-PARTY.md
+!tests/
+!tests/xwayland-modes.py

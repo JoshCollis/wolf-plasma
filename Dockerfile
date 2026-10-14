@@ -21,7 +21,48 @@ RUN curl -fSL --retry 3 --max-time 180 \
     tar -xOf /assets/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz ClusterCut-0.4.4/LICENSE \
       > /assets/doc/wolf-plasma/clustercut/LICENSE
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS xwayland
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Pinned security release; refuse silently serving an older private binary after
+# Fedora advances. See docs/high-refresh.md for the update/revalidation procedure.
+RUN dnf install -y --setopt=install_weak_deps=False \
+      gcc meson ninja-build patch tar xz python3 pkgconf-pkg-config \
+      wayland-devel wayland-protocols-devel libepoxy-devel libdrm-devel \
+      openssl-devel libtirpc-devel pixman-devel libX11-devel libXau-devel \
+      libXdmcp-devel libXext-devel libXfixes-devel libXfont2-devel libXi-devel \
+      libXinerama-devel libxkbfile-devel libXmu-devel libXrender-devel libXres-devel \
+      libxshmfence-devel xorg-x11-proto-devel xorg-x11-xtrans-devel libXtst-devel \
+      libXv-devel libxcvt-devel libdecor-devel liboeffis-devel libei-devel \
+      mesa-libGL-devel mesa-libEGL-devel mesa-libgbm-devel audit-libs-devel \
+      libselinux-devel libunwind-devel xcb-util-devel xcb-util-image-devel \
+      xcb-util-wm-devel xcb-util-keysyms-devel xcb-util-renderutil-devel && dnf clean all
+WORKDIR /build
+RUN curl -fSL --retry 3 --max-time 180 \
+      https://xorg.freedesktop.org/archive/individual/xserver/xwayland-24.1.14.tar.xz -o source.tar.xz && \
+    echo '4eb6b98d678299a4b96138d886345b294130695760345ef84596225a8224078a  source.tar.xz' | sha256sum -c - && \
+    tar -xf source.tar.xz
+COPY build/xwayland-rootful-refresh.patch /build/refresh.patch
+COPY tests/xwayland-modes.py /build/test-modes.py
+RUN patch --fuzz=0 -p1 -d xwayland-24.1.14 < refresh.patch && \
+    python3 test-modes.py xwayland-24.1.14/hw/xwayland/xwayland-output.c && \
+    meson setup out xwayland-24.1.14 --prefix=/usr --buildtype=release \
+      -Ddefault_font_path=catalogue:/etc/X11/fontpath.d,built-ins \
+      -Dxkb_dir=/usr/share/X11/xkb -Dxkb_bin_dir=/usr/bin -Dxkb_output_dir=/var/lib/xkb \
+      -Dserverconfigdir=/usr/share/xwayland -Dxcsecurity=true -Dglamor=true -Ddri3=true && \
+    meson compile -C out -j 2 && meson test -C out --print-errorlogs && \
+    mkdir -p /assets/libexec/wolf-plasma /assets/doc/wolf-plasma/xwayland && \
+    install -m 0755 out/hw/xwayland/Xwayland /assets/libexec/wolf-plasma/Xwayland && \
+    cp source.tar.xz refresh.patch xwayland-24.1.14/COPYING /assets/doc/wolf-plasma/xwayland/ && \
+    cp out/meson-logs/testlog.txt /assets/doc/wolf-plasma/xwayland/upstream-tests.txt
+
+COPY build/present-probe.c /build/present-probe.c
+# pkg-config intentionally emits separate compiler arguments.
+# hadolint ignore=SC2046
+RUN gcc -O2 -Wall -Werror present-probe.c -o /assets/libexec/wolf-plasma/present-probe \
+      $(pkg-config --cflags --libs xcb xcb-present) && \
+    cp present-probe.c /assets/doc/wolf-plasma/xwayland/
+
+FROM ${BASE_IMAGE} AS runtime
 ARG BASE_IMAGE
 ARG BASE_DIGEST=unrecorded-local-build
 ARG IMAGE_SOURCE
@@ -53,11 +94,15 @@ RUN source /etc/os-release && test "$ID" = fedora && \
       tar gzip bzip2 xz zstd unzip zip 7zip \
       python3 python3-pip nodejs npm gcc gcc-c++ make cmake pkgconf-pkg-config gdb && \
     dnf clean all && \
+    test "$(rpm --eval "%{lua: print(rpm.vercmp(\"$(rpm -q --qf '%{VERSION}' xorg-x11-server-Xwayland)\", \"24.1.14\"))}")" -le 0 && \
     chmod 0755 /usr/bin/bwrap && \
     mkdir -p /usr/share/wolf-plasma && \
     cp /etc/os-release /usr/share/wolf-plasma/base-os-release && \
     rpm -qa | sort > /usr/share/wolf-plasma/packages.txt
 COPY --from=themes /assets/ /usr/share/
+COPY --from=xwayland /assets/libexec/ /usr/local/libexec/
+COPY --from=xwayland /assets/doc/ /usr/share/doc/
+RUN /usr/local/libexec/wolf-plasma/Xwayland -version
 COPY overlay/ /
 COPY LICENSE THIRD-PARTY.md /usr/share/doc/wolf-plasma/
 RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \

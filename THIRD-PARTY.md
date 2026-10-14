@@ -29,6 +29,16 @@ source archive (including build scripts and dependency lockfiles) are included
 at `/usr/share/doc/wolf-plasma/clustercut/`. Upstream source is also available at
 <https://github.com/keithvassallomt/ClusterCut/tree/v0.4.4>.
 
+## Xwayland
+
+Upstream [Xwayland 24.1.14](https://xorg.freedesktop.org/archive/individual/xserver/xwayland-24.1.14.tar.xz),
+SHA-256 `4eb6b98d678299a4b96138d886345b294130695760345ef84596225a8224078a`.
+The private rootful binary has the project's small `build/xwayland-rootful-refresh.patch`.
+Matching source, patch and upstream `COPYING` (MIT/X11 and other notices) are
+included at `/usr/share/doc/wolf-plasma/xwayland/`. The system Fedora RPM is
+retained; the desktop explicitly launches `/usr/local/libexec/wolf-plasma/Xwayland`.
+The serial Present COPY diagnostic and its source are project MIT code.
+
 ## Distribution packages
 
 KDE, GTK, Papirus, Kvantum, Flatpak and other Fedora packages retain their own

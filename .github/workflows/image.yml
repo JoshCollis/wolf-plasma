@@ -61,7 +61,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # Refresh RPMs/EOL check even when the published base digest hasn't changed.
-          no-cache-filters: stage-1
+          no-cache-filters: runtime
       - name: Image and software-headless Plasma checks
         run: bash tests/run.sh wolf-plasma:test
       - name: Export tested image

@@ -1,0 +1,46 @@
+From: Wolf Plasma maintainers
+Subject: [PATCH] xwayland: use explicit fake-screen rate for rootful modes
+
+Applies to upstream xwayland-24.1.14. Rootless output handling, Present
+fallback timers and Wayland frame callbacks are deliberately unchanged.
+The launcher must verify the actual parent mode agrees with negotiation.
+
+--- a/hw/xwayland/xwayland-output.c
++++ b/hw/xwayland/xwayland-output.c
+@@ -29,6 +29,7 @@
+ 
+ #include <X11/Xatom.h>
+ #include "randrstr_priv.h"
++#include "present.h"
+ 
+ #include "xwayland-cvt.h"
+ #include "xwayland-output.h"
+@@ -1225,6 +1226,10 @@
+     RRModePtr *modes = NULL;
+     RRModePtr mode;
+     int i, nmodes, current;
++    /* Match the explicitly negotiated rate supplied by the rootful launcher.
++     * This does not change the parent compositor or Wayland frame callbacks.
++     */
++    double refresh = FakeScreenFps ? FakeScreenFps : 60;
+ 
+     modes = xallocarray(ARRAY_SIZE(xwl_output_fake_modes) + 1, sizeof(RRModePtr));
+     if (!modes) {
+@@ -1246,7 +1251,7 @@
+ 
+         mode = xwayland_cvt(xwl_output_fake_modes[i][0],
+                             xwl_output_fake_modes[i][1],
+-                            60, 0, 0);
++                            refresh, 0, 0);
+ 
+         if (mode)
+             modes[nmodes++] = mode;
+@@ -1254,7 +1259,7 @@
+ 
+     if (!current) {
+         /* Add the current mode as it's not part of the fake modes. */
+-        mode = xwayland_cvt(current_width, current_height, 60, 0, 0);
++        mode = xwayland_cvt(current_width, current_height, refresh, 0, 0);
+ 
+         if (mode)
+             modes[nmodes++] = mode;

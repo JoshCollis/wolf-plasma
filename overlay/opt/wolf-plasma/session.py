@@ -8,6 +8,7 @@ import subprocess
 import time
 
 from gpg_lifecycle import GpgLifecycle
+from refresh import negotiated_refresh, parent_modes, require_parent_mode
 
 children = []
 gpg_lifecycle = None
@@ -64,8 +65,11 @@ def main():
     height = int(env.get("GAMESCOPE_HEIGHT", "1080"))
     if not (320 <= width <= 16384 and 240 <= height <= 16384):
         raise RuntimeError("Invalid Wolf client dimensions")
+    rate = negotiated_refresh(env)
+    require_parent_mode(parent_modes(parent), width, height, rate)
     children.append(subprocess.Popen(
-        ["Xwayland", ":0", "-fullscreen", "-geometry", f"{width}x{height}",
+        ["/usr/local/libexec/wolf-plasma/Xwayland", ":0", "-fullscreen", "-geometry", f"{width}x{height}",
+         "-fakescreenfps", str(rate),
          "-nolisten", "tcp", "-noreset", "-auth", env["XAUTHORITY"]],
         env=xenv, start_new_session=True))
     deadline = time.monotonic() + 30

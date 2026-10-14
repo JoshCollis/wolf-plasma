@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 test -x /entrypoint.sh
+test -x /usr/local/libexec/wolf-plasma/Xwayland
+test -x /usr/local/libexec/wolf-plasma/present-probe
+/usr/local/libexec/wolf-plasma/Xwayland -version 2>&1 | grep -q '24.1.14'
+printf '%s\n' '4eb6b98d678299a4b96138d886345b294130695760345ef84596225a8224078a  /usr/share/doc/wolf-plasma/xwayland/source.tar.xz' | sha256sum -c -
+test -s /usr/share/doc/wolf-plasma/xwayland/refresh.patch
+test -s /usr/share/doc/wolf-plasma/xwayland/COPYING
+test -s /usr/share/doc/wolf-plasma/xwayland/upstream-tests.txt
 for hook in 10-setup_user 15-setup_devices 30-nvidia; do
     test -f "/etc/cont-init.d/$hook.sh"
 done
