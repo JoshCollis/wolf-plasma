@@ -38,6 +38,12 @@ past its declared support date. Rootful Xwayland is built from checksum-pinned
 that version intentionally fails the build pending revalidation. See
 [high-refresh support and acceptance](docs/high-refresh.md).
 
+The official GoW `:fedora` tag currently contains Fedora 44. An isolated build
+and the full software/headless suite passed without package or session changes;
+see the [Fedora 44 experiment](docs/fedora-44.md) for the tested digest, versions
+and remaining hardware/frame-cadence checks. Existing containers remain unchanged
+until explicitly recreated with a rebuilt image.
+
 ## Wolf configuration
 
 Use [examples/wolf-plasma.toml](examples/wolf-plasma.toml) as the application
