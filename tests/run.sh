@@ -18,6 +18,7 @@ trap cleanup EXIT
 python3 "$root/tests/refresh.py"
 python3 "$root/tests/native-launcher.py"
 python3 "$root/tests/supervisor.py"
+python3 "$root/tests/application-policy.py"
 docker run --rm --network none --entrypoint python3 \
     -v "$root/tests:/tests:ro" "$image" /tests/supervisor.py
 docker run --rm --network none --entrypoint python3 \
@@ -59,9 +60,4 @@ for exit_test in probe-stall logout; do
 done
 # Full application sandbox gate matches the existing production policy. Core
 # KWin checks above deliberately retain default Docker caps/security instead.
-production_policy=()
-source "$root/tests/production-policy.sh"
-docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" "${production_policy[@]}" \
-    -e NATIVE_BROWSER_GATE=1 -e GAMESCOPE_REFRESH=60 \
-    -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
-    "$image" 'cp /tests/virtual-wrapper.sh /usr/local/bin/kwin_wayland_wrapper; chmod +x /usr/local/bin/kwin_wayland_wrapper; exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'
+bash "$root/tests/production-policy.sh" "$image" "$volume"
