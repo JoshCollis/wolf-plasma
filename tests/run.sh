@@ -18,9 +18,12 @@ trap cleanup EXIT
 python3 "$root/tests/refresh.py"
 python3 "$root/tests/native-launcher.py"
 python3 "$root/tests/supervisor.py"
+python3 "$root/tests/output-publication.py"
 python3 "$root/tests/application-policy.py"
 docker run --rm --network none --entrypoint python3 \
     -v "$root/tests:/tests:ro" "$image" /tests/supervisor.py
+docker run --rm --network none --entrypoint python3 \
+    -v "$root/tests:/tests:ro" "$image" /tests/output-publication.py
 docker run --rm --network none --entrypoint python3 \
     -v "$root/tests:/tests:ro" "$image" /tests/refresh.py
 docker run --rm --network none --entrypoint bash \
@@ -39,6 +42,11 @@ docker run --rm --network none --memory 1g --cpus 1 "${device_args[@]}" -v "$roo
     'exec bash /tests/with-udmabuf.sh dbus-run-session -- bash /tests/virtual-render-gate.sh'
 # Recreate with the same disposable home: verify state across container lifetime.
 volume=$(docker volume create)
+# Exercise the actual native nesting launcher at the formerly failing rate.
+# Do not substitute virtual-wrapper.sh for the child in this regression.
+docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" \
+    -e GAMESCOPE_REFRESH=90 -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
+    "$image" 'exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'
 for refresh in 60 90 120 144; do
     printf 'CPU virtual native acceptance at %s Hz (not Wolf GPU acceptance)\n' "$refresh"
     docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" \

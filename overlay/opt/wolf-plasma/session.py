@@ -11,6 +11,7 @@ import time
 
 from gpg_lifecycle import GpgLifecycle
 from refresh import negotiated_refresh, parent_modes, require_parent_mode
+from output_publication import publish_current_mode
 
 children = []
 gpg_lifecycle = None
@@ -146,7 +147,8 @@ def supervise(desktop, state, env, parent, width, height, rate, identity=None):
                 # Classic Plasma logout quits KWin BEFORE startplasma completes.
                 # Do not probe an intentionally closing child socket. Its exit
                 # must still be observed as 0 and accompanied by desktop 0.
-                healthy = True if closing or status == 0 else native_ready(state, env, width, height, rate)
+                healthy = True if closing or status == 0 else native_ready(
+                    state, env, width, height, rate, allow_mode_publication=not ready)
             except (TimeoutError, subprocess.TimeoutExpired) as exc:
                 # An inconclusive IPC probe is not evidence of process/output
                 # loss. Retry with a bounded grace; explicit disconnect, inode
@@ -178,13 +180,14 @@ def supervise(desktop, state, env, parent, width, height, rate, identity=None):
         time.sleep(0.2)
 
 
-def native_ready(state, env, width, height, rate):
+def native_ready(state, env, width, height, rate, *, allow_mode_publication=True):
     info, bus = state / 'compositor.json', state / 'bus'
     if not info.exists() or not bus.exists():
         return False
     client = json.loads(info.read_text())
     socket = str(Path(env['XDG_RUNTIME_DIR']) / client['socket'])
-    probe_env = env | {'DBUS_SESSION_BUS_ADDRESS': bus.read_text().strip()}
+    probe_env = env | {'DBUS_SESSION_BUS_ADDRESS': bus.read_text().strip(),
+                       'WAYLAND_DISPLAY': socket}
     try:
         # Wrapper name registration alone precedes real compositing readiness.
         result = subprocess.run(['dbus-send', '--session', '--type=method_call', '--print-reply',
@@ -195,14 +198,20 @@ def native_ready(state, env, width, height, rate):
             raise TimeoutError('Native compositor D-Bus probe unavailable')
         if 'boolean true' not in result.stdout:
             return False
-        require_parent_mode(parent_modes(socket), width, height, rate)
+        modes = parent_modes(socket)
+        if (allow_mode_publication and len(modes) == 1
+                and (modes[0]['width'], modes[0]['height']) == (width, height)
+                and abs(modes[0]['refresh_mHz'] - rate * 1000) > 500
+                and publish_current_mode(state, probe_env, width, height, rate)):
+            modes = parent_modes(socket)
+        require_parent_mode(modes, width, height, rate)
         return subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'plasmashell'],
                               stdout=subprocess.DEVNULL).returncode == 0
     except (TimeoutError, subprocess.TimeoutExpired):
         raise
     except (OSError, RuntimeError):
-        # The nested output initially advertises 60Hz. Give actual presentation
-        # feedback time to update its mode and render loop before declaring ready.
+        # Readiness still requires real wl_output state. Startup synchronization
+        # may only publish a backend mode already learned from parent feedback.
         return False
 
 

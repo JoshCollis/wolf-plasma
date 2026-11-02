@@ -12,7 +12,7 @@ for hook in 10-setup_user 15-setup_devices 30-nvidia; do
     test -f "/etc/cont-init.d/$hook.sh" || { printf 'Missing inherited GoW hook: %s\n' "$hook" >&2; exit 1; }
 done
 for cmd in startplasma-wayland kwin_wayland plasmashell plasma-discover systemsettings dolphin konsole kate ark \
-    flatpak bwrap wayland-info kwriteconfig6 kreadconfig6 clustercut \
+    flatpak bwrap wayland-info kscreen-doctor kwriteconfig6 kreadconfig6 clustercut \
     ncdu ping traceroute ssh git curl wget jq rg tmux nano less rsync dig ip ss ps lsof strace file diff patch \
     tar gzip xz zstd zip unzip 7z python3 pip3 node npm gcc g++ make cmake pkg-config gdb; do
     command -v "$cmd" || { printf 'Required image command not found: %s\n' "$cmd" >&2; exit 1; }
