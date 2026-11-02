@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Plasma 6.8 plasma_session requests --xwayland unconditionally. Keep the
+# packaged socket/activation wrapper, but never enable its optional X11 server.
+set -euo pipefail
+: "${WOLF_PLASMA_PARENT_DISPLAY:?Missing supervised parent Wayland socket}"
+: "${GAMESCOPE_WIDTH:?Missing negotiated width}"
+: "${GAMESCOPE_HEIGHT:?Missing negotiated height}"
+args=()
+for arg in "$@"; do
+    case "$arg" in
+        --xwayland) ;;
+        --xwayland*) printf 'Unsupported Xwayland option: %s\n' "$arg" >&2; exit 1 ;;
+        *) args+=("$arg") ;;
+    esac
+done
+exec /usr/bin/kwin_wayland_wrapper "${args[@]}" \
+    --wayland-display "$WOLF_PLASMA_PARENT_DISPLAY" \
+    --width "$GAMESCOPE_WIDTH" --height "$GAMESCOPE_HEIGHT" --fullscreen true

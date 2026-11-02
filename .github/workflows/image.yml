@@ -62,8 +62,34 @@ jobs:
           cache-to: type=gha,mode=max
           # Refresh RPMs/EOL check even when the published base digest hasn't changed.
           no-cache-filters: runtime
-      - name: Image and software-headless Plasma checks
-        run: bash tests/run.sh wolf-plasma:test
+      - name: Prepare ephemeral CI software-rendering device
+        run: |
+          set -euo pipefail
+          if [[ ! -c /dev/udmabuf ]]; then
+            sudo modprobe udmabuf
+          fi
+          test -c /dev/udmabuf
+          # No chmod/chown: GoW adds the test user to the numeric device group.
+          stat -Lc 'udmabuf device=%t:%T mode=%a uid=%u gid=%g' /dev/udmabuf
+      - name: Image and native software-rendered Plasma checks
+        # This host setup is authorized ONLY on this ephemeral GitHub job.
+        # It enables nested application sandboxes; none are disabled in the app.
+        # Local tests/run.sh never changes a host sysctl or AppArmor setting.
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          if [[ -f /proc/sys/kernel/unprivileged_userns_clone ]]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          if [[ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          if [[ $(cat /proc/sys/user/max_user_namespaces) = 0 ]]; then
+            sudo sysctl -w user.max_user_namespaces=126728
+          fi
+          bash tests/run.sh wolf-plasma:test
+      - name: Required nested Flatpak and Brave sandbox acceptance
+        run: python3 tests/sandbox-run.py wolf-plasma:test
       - name: Export tested image
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: docker save wolf-plasma:test | gzip > tested-image.tar.gz

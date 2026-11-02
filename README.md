@@ -2,14 +2,20 @@
 
 Fedora-based KDE Plasma 6 desktop for [Wolf](https://github.com/games-on-whales/wolf).
 Built on the official [Games-on-Whales base-app](https://github.com/games-on-whales/gow),
-using Xwayland to display a Plasma X11 session inside Wolf. Supports `linux/amd64`.
+running a native Wayland KWin/Plasma session directly inside Wolf. Supports `linux/amd64`.
+
+**Wayland-only:** X11-only applications no longer work. There is no Xorg,
+Xwayland session or automatic X11 fallback. Fedora's KWin/Plasma packages still
+require the distribution Xwayland RPM and transitive X11 client libraries; these
+dependencies are retained intact, not presented as a zero-X11-files image.
+The private patched Xwayland server and its build/source assets are gone.
 
 ## Included
 
 - Dracula Plasma, GTK and Kvantum themes, Dracula window decorations and Papirus-Dark icons.
 - Konsole with Fira Code, Bash completion, a coloured Git prompt and Fastfetch.
 - Dolphin, Kate, Ark, Plasma Settings and audio controls.
-- ClusterCut 0.4.4 (native X11), autostarting in the tray for clipboard sync.
+- ClusterCut 0.4.4, autostarting natively in the tray for clipboard sync.
 - Discover with Flathub; Brave installs as a user Flatpak on first launch.
 - Git, Python, Node.js/npm, GCC/G++, CMake, GDB, network diagnostics and archive tools.
 
@@ -25,24 +31,43 @@ bash tests/run.sh wolf-plasma:local
 ```
 
 Docker and network access are required for the build. Tests use disposable
-containers, a temporary volume and an internal-only test network. An optional
-Brave sandbox test downloads the browser and its runtime:
+containers and a temporary home volume. An additional
+Brave sandbox test downloads the browser and its runtime (required in CI):
 
 ```sh
 python3 tests/sandbox-run.py wolf-plasma:local
 ```
 
 The build uses Fedora packages from the base image's release and rejects a base
-past its declared support date. Rootful Xwayland is built from checksum-pinned
-24.1.14 source with a narrow negotiated-refresh patch; Fedora advancing past
-that version intentionally fails the build pending revalidation. See
-[high-refresh support and acceptance](docs/high-refresh.md).
+past its declared support date. Plasma/KWin/Qt follow the maintained Fedora
+repositories, without a historical package hold. Only the packaged
+`kwin_wayland` file capability is removed; no `SYS_NICE` or runner change is
+required. Stock Plasma 6.8 requests `kwin_wayland_wrapper --xwayland`; the
+image-local launcher removes that option and executes the packaged wrapper
+exactly once, preserving its native socket and D-Bus activation handling.
 
-The official GoW `:fedora` tag currently contains Fedora 44. An isolated build
-and the full software/headless suite passed without package or session changes;
-see the [Fedora 44 experiment](docs/fedora-44.md) for the tested digest, versions
-and remaining hardware/frame-cadence checks. Existing containers remain unchanged
-until explicitly recreated with a rebuilt image.
+CPU tests explicitly substitute KWin's **virtual** backend and test-only software
+Mesa. They are not Wolf GPU, Moonlight, input-device or delivered-cadence proof.
+KWin 6.8 additionally needs a usable render device or `/dev/udmabuf`, even with
+software Mesa. Tests pass the existing `/dev/udmabuf` into disposable containers,
+verify that Docker created a distinct device inode, and use the inherited GoW
+`GOW_REQUIRED_DEVICES` group-init hook for desktop-user access. Neither the host
+node nor the cloned node needs chmod/chown. Host identity/permissions are checked before and after.
+No local host module or permission change is made. The ephemeral GitHub runner
+may load its standard `udmabuf` module if needed. Without the real device, the
+native gate **fails**, not skips; a mapped surface with `active=false` is not a pass.
+Browser sandbox tests also require working user namespaces. Core KWin tests use
+default Docker capabilities; the separate full-application test uses the already
+existing Wolf application security flags, without changing Wolf configuration.
+Only the ephemeral GitHub job may enable its host's namespace support. Local
+tests never change host sysctls/AppArmor settings, and no application sandbox
+is disabled to work around a restricted test host.
+Direct hardware nesting has separate isolated feasibility evidence; the complete
+candidate's GPU/60/90/120/144-Hz acceptance remains a parent-run gate. Neither an
+initial output announcement nor process/socket existence proves delivered FPS.
+KWin learns the nested refresh from actual presentation feedback; readiness waits
+for active compositing and negotiated geometry/rate after frames have started.
+Parent loss, socket replacement or changed negotiation fails the session closed.
 
 ## Wolf configuration
 
@@ -86,8 +111,7 @@ automatic sending and receiving with paired devices. Open ClusterCut from the
 tray or application launcher and pair your client once; the image does not ship
 shared identities, PINs or trusted peers. Install ClusterCut on the client too:
 this is independent of Moonlight's clipboard support.
-Both launchers set `WEBKIT_DISABLE_DMABUF_RENDERER=1` to avoid a blank WebKit UI
-in the container's X11 session.
+The native launchers do not force an X11 backend or disable WebKit's GPU/sandbox.
 
 Settings and pairing keys remain in the persistent home under
 `~/.config/app.clustercut.clustercut` (or the corresponding XDG path).
@@ -114,7 +138,7 @@ detector requires a non-loopback interface and a default route.
 
 Kleopatra, KWallet Manager and Qt Pinentry are included. Fedora's Pinentry wrapper
 selects the graphical Qt dialog in the Plasma session. Session startup refreshes
-the GPG agent's saved display and Xauthority environment without replacing user
+the GPG agent's saved native Wayland display environment without replacing user
 GPG configuration.
 
 Create or import a personal, encryption-capable key in Kleopatra, then select it

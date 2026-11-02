@@ -12,6 +12,14 @@ profile="$HOME/.local/share/konsole/Dracula.profile"
 if [[ -f $profile && -z $(kreadconfig6 --file "$profile" --group General --key Command) ]]; then
     kwriteconfig6 --file "$profile" --group General --key Command /bin/bash
 fi
+# Retire only the exact image-owned X11 default in previously seeded homes.
+# Other compositing keys and homes without our marker are not ours to migrate.
+if [[ ! -e $state/native-v1 ]]; then
+    if [[ -e $state/defaults-v1 && $(kreadconfig6 --file kwinrc --group Compositing --key Enabled) = false ]]; then
+        kwriteconfig6 --file kwinrc --group Compositing --key Enabled --delete
+    fi
+    touch "$state/native-v1"
+fi
 [[ ! -e $state/defaults-v1 ]] || exit 0
 fresh=false
 [[ -e $config/kdeglobals ]] || fresh=true
@@ -27,7 +35,6 @@ if $fresh; then
     kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme breeze_cursors
     kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
     kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key theme __aurorae__svg__Dracula
-    kwriteconfig6 --file kwinrc --group Compositing --key Enabled false
     kwriteconfig6 --file ksplashrc --group KSplash --key Engine none
     kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
     kwriteconfig6 --file baloofilerc --group 'Basic Settings' --key 'Indexing-Enabled' false

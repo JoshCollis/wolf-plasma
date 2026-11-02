@@ -43,7 +43,7 @@ def parent_modes(path):
             while len(result) < size:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise RuntimeError('Wolf parent output probe timed out')
+                    raise TimeoutError('Wolf parent output probe timed out')
                 client.settimeout(remaining)
                 chunk = client.recv(size - len(result))
                 if not chunk:

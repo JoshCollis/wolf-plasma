@@ -2,11 +2,26 @@
 set -euo pipefail
 image=${1:-wolf-plasma:local}
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+test -c /dev/udmabuf || { printf '%s\n' 'Native CPU tests require the existing /dev/udmabuf device; no GUI tests are skipped.' >&2; exit 1; }
+device_before=$(stat -Lc '%d:%i:%u:%g:%a:%t:%T' /dev/udmabuf)
+device_args=(--device=/dev/udmabuf:/dev/udmabuf:rw
+    -e GOW_REQUIRED_DEVICES=/dev/udmabuf
+    -e "WOLF_PLASMA_TEST_HOST_UDMABUF_ID=$(stat -Lc '%d:%i' /dev/udmabuf)")
+volume=''
+cleanup() {
+    if [[ -n $volume ]]; then docker volume rm "$volume" >/dev/null; fi
+    test "$device_before" = "$(stat -Lc '%d:%i:%u:%g:%a:%t:%T' /dev/udmabuf)" || {
+        printf '%s\n' 'Host udmabuf identity/permissions changed unexpectedly' >&2; exit 1;
+    }
+}
+trap cleanup EXIT
 python3 "$root/tests/refresh.py"
+python3 "$root/tests/native-launcher.py"
+python3 "$root/tests/supervisor.py"
+docker run --rm --network none --entrypoint python3 \
+    -v "$root/tests:/tests:ro" "$image" /tests/supervisor.py
 docker run --rm --network none --entrypoint python3 \
     -v "$root/tests:/tests:ro" "$image" /tests/refresh.py
-docker run --rm --network none --entrypoint bash \
-    -v "$root/tests:/tests:ro" "$image" -ec 'chown -R 1000:1000 /home/retro; mkdir -p /run/user/1000; chown 1000:1000 /run/user/1000; chmod 0700 /run/user/1000; exec gosu 1000:1000 python3 /tests/refresh-headless.py'
 docker run --rm --network none --entrypoint bash \
     -v "$root/tests:/tests:ro" "$image" /tests/image.sh
 docker run --rm --network none --entrypoint python3 \
@@ -14,29 +29,39 @@ docker run --rm --network none --entrypoint python3 \
 docker run --rm --network none --entrypoint python3 -e TMPDIR=/home/retro \
     -v "$root/tests:/tests:ro" "$image" /tests/gpg-lifecycle.py
 python3 "$root/tests/gpg-crash.py" "$image"
-docker run --rm --network none -v "$root/tests:/tests:ro" "$image" \
-    'gosu "$UNAME" python3 /tests/refresh-functional.py'
 docker run --rm --network none -v "$root/tests:/tests:ro" "$image" 'bash /tests/shell.sh'
+docker run --rm --network none -v "$root/tests:/tests:ro" "$image" \
+    'exec gosu "$UNAME" dbus-run-session -- bash /tests/seed-native.sh'
+docker run --rm --network none --memory 3g --cpus 3 "${device_args[@]}" -v "$root/tests:/tests:ro" "$image" \
+    'exec bash /tests/with-udmabuf.sh python3 /tests/native-production-path.py'
+docker run --rm --network none --memory 1g --cpus 1 "${device_args[@]}" -v "$root/tests:/tests:ro" "$image" \
+    'exec bash /tests/with-udmabuf.sh dbus-run-session -- bash /tests/virtual-render-gate.sh'
 # Recreate with the same disposable home: verify state across container lifetime.
 volume=$(docker volume create)
-network=''
-trap 'docker volume rm "$volume" >/dev/null; if [[ -n $network ]]; then docker network rm "$network" >/dev/null; fi' EXIT
-# ClusterCut's mDNS registration needs a non-loopback interface. An internal
-# disposable network supplies it without granting these desktop tests LAN/WAN access.
-# Its local-IP detector also needs a default route; the internal bridge still
-# blocks external traffic even with that route installed inside the container.
-network=$(docker network create --internal "wolf-plasma-test-${volume:0:12}")
-for pass in 1 2; do
-    printf 'Headless container creation %s\n' "$pass"
-    refresh=60
-    if [[ $pass = 2 ]]; then refresh=90; fi
-    docker run --rm --network "$network" --cap-add NET_ADMIN --security-opt seccomp=unconfined \
+for refresh in 60 90 120 144; do
+    printf 'CPU virtual native acceptance at %s Hz (not Wolf GPU acceptance)\n' "$refresh"
+    docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" \
         -e GAMESCOPE_REFRESH="$refresh" \
-        --security-opt apparmor=unconfined --shm-size 1g \
         -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
-        "$image" 'ip route add default dev eth0 && gosu "$UNAME" bash /tests/headless.sh'
+        "$image" 'cp /tests/virtual-wrapper.sh /usr/local/bin/kwin_wayland_wrapper; chmod +x /usr/local/bin/kwin_wayland_wrapper; exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'
 done
-docker run --rm --network "$network" --cap-add NET_ADMIN --security-opt seccomp=unconfined \
-    --security-opt apparmor=unconfined --shm-size 1g -e FAILURE_TEST=xwayland -e GAMESCOPE_REFRESH=144 \
+for failure in compositor parent mode; do
+    docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" \
+        -e FAILURE_TEST="$failure" -e GAMESCOPE_REFRESH=144 \
+        -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
+        "$image" 'cp /tests/virtual-wrapper.sh /usr/local/bin/kwin_wayland_wrapper; chmod +x /usr/local/bin/kwin_wayland_wrapper; exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'
+done
+for exit_test in probe-stall logout; do
+    docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" \
+        -e EXIT_TEST="$exit_test" -e GAMESCOPE_REFRESH=60 \
+        -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
+        "$image" 'cp /tests/virtual-wrapper.sh /usr/local/bin/kwin_wayland_wrapper; chmod +x /usr/local/bin/kwin_wayland_wrapper; exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'
+done
+# Full application sandbox gate matches the existing production policy. Core
+# KWin checks above deliberately retain default Docker caps/security instead.
+production_policy=()
+source "$root/tests/production-policy.sh"
+docker run --rm --network none --memory 3g --cpus 3 --shm-size 1g "${device_args[@]}" "${production_policy[@]}" \
+    -e NATIVE_BROWSER_GATE=1 -e GAMESCOPE_REFRESH=60 \
     -v "$volume:/home/retro" -v "$root/tests:/tests:ro" \
-    "$image" 'ip route add default dev eth0 && exec gosu "$UNAME" bash /tests/headless.sh'
+    "$image" 'cp /tests/virtual-wrapper.sh /usr/local/bin/kwin_wayland_wrapper; chmod +x /usr/local/bin/kwin_wayland_wrapper; exec bash /tests/with-udmabuf.sh python3 /tests/native-headless.py'

@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'printf "Image assertion failed at %s:%s: %s (exit %s)\n" "${BASH_SOURCE[0]}" "$LINENO" "$BASH_COMMAND" "$?" >&2' ERR
 test -x /entrypoint.sh
-test -x /usr/local/libexec/wolf-plasma/Xwayland
-test -x /usr/local/libexec/wolf-plasma/present-probe
-/usr/local/libexec/wolf-plasma/Xwayland -version 2>&1 | grep -q '24.1.14'
-printf '%s\n' '4eb6b98d678299a4b96138d886345b294130695760345ef84596225a8224078a  /usr/share/doc/wolf-plasma/xwayland/source.tar.xz' | sha256sum -c -
-test -s /usr/share/doc/wolf-plasma/xwayland/refresh.patch
-test -s /usr/share/doc/wolf-plasma/xwayland/COPYING
-test -s /usr/share/doc/wolf-plasma/xwayland/upstream-tests.txt
+test ! -e /usr/local/libexec/wolf-plasma/Xwayland
+test ! -e /usr/share/doc/wolf-plasma/xwayland
+test -z "$(getcap /usr/bin/kwin_wayland)"
+test "$(command -v kwin_wayland_wrapper)" = /usr/local/bin/kwin_wayland_wrapper
+test "$(command -v kwin_wayland)" = /usr/local/bin/kwin_wayland
+test ! -e /etc/dnf/versionlock.toml
 for hook in 10-setup_user 15-setup_devices 30-nvidia; do
-    test -f "/etc/cont-init.d/$hook.sh"
+    test -f "/etc/cont-init.d/$hook.sh" || { printf 'Missing inherited GoW hook: %s\n' "$hook" >&2; exit 1; }
 done
-for cmd in startplasma-x11 kwin_x11 plasmashell plasma-discover systemsettings dolphin konsole kate ark \
-    flatpak bwrap Xwayland xdpyinfo xrandr kwriteconfig6 kreadconfig6 clustercut \
+for cmd in startplasma-wayland kwin_wayland plasmashell plasma-discover systemsettings dolphin konsole kate ark \
+    flatpak bwrap wayland-info kwriteconfig6 kreadconfig6 clustercut \
     ncdu ping traceroute ssh git curl wget jq rg tmux nano less rsync dig ip ss ps lsof strace file diff patch \
     tar gzip xz zstd zip unzip 7z python3 pip3 node npm gcc g++ make cmake pkg-config gdb; do
-    command -v "$cmd"
+    command -v "$cmd" || { printf 'Required image command not found: %s\n' "$cmd" >&2; exit 1; }
 done
 test "$(stat -c %a /usr/bin/bwrap)" = 755
 test -f /usr/share/color-schemes/DraculaPurple.colors
@@ -49,9 +49,9 @@ command -v kleopatra
 test ! -d /home/retro/.gnupg/private-keys-v1.d
 test "$(rpm -q --qf '%{VERSION}' cluster-cut)" = 0.4.4
 desktop-file-validate /etc/xdg/autostart/ClusterCut.desktop
-grep -qx 'Exec=env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/clustercut --minimized' /etc/xdg/autostart/ClusterCut.desktop
+grep -qx 'Exec=/usr/bin/clustercut --minimized' /etc/xdg/autostart/ClusterCut.desktop
 desktop-file-validate /usr/share/applications/ClusterCut.desktop
-grep -qx 'Exec=env GDK_BACKEND=x11 WEBKIT_DISABLE_DMABUF_RENDERER=1 /usr/bin/clustercut' /usr/share/applications/ClusterCut.desktop
+grep -qx 'Exec=clustercut' /usr/share/applications/ClusterCut.desktop
 test -s /usr/share/doc/wolf-plasma/clustercut/LICENSE
 test -s /usr/share/doc/wolf-plasma/clustercut/source-v0.4.4.tar.gz
 test ! -d /home/retro/.config/app.clustercut.clustercut

@@ -1,60 +1,22 @@
 """Exercise GPG agent display setup, Qt Pinentry and disposable encryption keys."""
-import ctypes
-import ctypes.util
 import os
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 import time
+from native_tools import script, windows
 
 
 def run(args, env=None, data=None):
     return subprocess.check_output(args, env=env, input=data, text=True, stderr=subprocess.PIPE)
 
 
-def close_window(window):
-    class Data(ctypes.Union):
-        _fields_ = [('l', ctypes.c_long * 5)]
-
-    class Message(ctypes.Structure):
-        _fields_ = [('type', ctypes.c_int), ('serial', ctypes.c_ulong),
-                    ('send_event', ctypes.c_int), ('display', ctypes.c_void_p),
-                    ('window', ctypes.c_ulong), ('message_type', ctypes.c_ulong),
-                    ('format', ctypes.c_int), ('data', Data)]
-
-    class Event(ctypes.Union):
-        _fields_ = [('message', Message), ('pad', ctypes.c_long * 24)]
-
-    x = ctypes.CDLL(ctypes.util.find_library('X11'))
-    x.XOpenDisplay.argtypes = [ctypes.c_char_p]
-    x.XOpenDisplay.restype = ctypes.c_void_p
-    x.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
-    x.XInternAtom.restype = ctypes.c_ulong
-    x.XSendEvent.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_int, ctypes.c_long, ctypes.POINTER(Event)]
-    x.XFlush.argtypes = [ctypes.c_void_p]
-    x.XCloseDisplay.argtypes = [ctypes.c_void_p]
-    display = x.XOpenDisplay(None)
-    assert display, 'Cannot open the test X display'
-    event = Event()
-    event.message.type = 33
-    event.message.display = display
-    event.message.window = window
-    event.message.message_type = x.XInternAtom(display, b'WM_PROTOCOLS', 0)
-    event.message.format = 32
-    event.message.data.l[0] = x.XInternAtom(display, b'WM_DELETE_WINDOW', 0)
-    assert x.XSendEvent(display, window, 0, 0, ctypes.byref(event))
-    x.XFlush(display)
-    x.XCloseDisplay(display)
-
-
 def main():
     # The ordinary agent must already have the desktop's startup display.
     info = run(['gpg-connect-agent', 'GETINFO std_startup_env', '/bye'])
-    assert 'DISPLAY=' + os.environ['DISPLAY'] in info
-    assert 'XAUTHORITY=' + os.environ['XAUTHORITY'] in info
+    assert 'WAYLAND_DISPLAY=' + os.environ['WAYLAND_DISPLAY'] in info, info
     with tempfile.TemporaryDirectory(prefix='gpg-test-', dir=os.environ['XDG_RUNTIME_DIR']) as home:
-        env = dict(os.environ, GNUPGHOME=home, QT_QPA_PLATFORM='xcb', KDE_FULL_SESSION='true')
+        env = dict(os.environ, GNUPGHOME=home, QT_QPA_PLATFORM='wayland', KDE_FULL_SESSION='true')
         (Path(home) / 'common.conf').write_text('use-keyboxd\n')
         config = Path(home) / 'gpg-agent.conf'
         config.write_text('default-cache-ttl 90\n# user configuration\n')
@@ -69,18 +31,17 @@ def main():
                 env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             window = None
             for _ in range(100):
-                clients = run(['xprop', '-root', '_NET_CLIENT_LIST'])
-                for wid in re.findall(r'0x[0-9a-fA-F]+', clients):
-                    props = run(['xprop', '-id', wid, 'WM_CLASS'])
-                    if 'pinentry' in props.lower():
-                        window = int(wid, 16)
+                for client in windows():
+                    if 'pinentry' in client['app'].lower():
+                        window = client['pid']
                         break
                 if window:
                     break
                 assert prompt.poll() is None, 'GPG prompt exited before displaying a window'
                 time.sleep(.1)
             assert window, 'Graphical GPG Pinentry did not appear'
-            close_window(window)
+            assert script(f'const w = workspace.windowList().find(w => w.pid === {window}); '
+                          'if (w) w.closeWindow(); return !!w;')
             output, _ = prompt.communicate(timeout=10)
             assert 'ERR ' in output and 'cancel' in output.lower(), output
             print('GPG agent graphical passphrase dialog opened and cancelled')

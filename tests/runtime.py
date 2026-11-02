@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Exercise the root init hook against real sockets in a disposable container."""
-import ast
 import os
 from types import SimpleNamespace
 from pathlib import Path
@@ -9,20 +8,58 @@ import stat
 import subprocess
 import tempfile
 import unittest
+import sys
+from unittest import mock
+
+sys.path.insert(0, '/opt/wolf-plasma')
+import session
 
 HOOK = '/etc/cont-init.d/05-plasma-runtime.sh'
 
 
 class RuntimeTests(unittest.TestCase):
-    def test_xwayland_failure_wins_over_clean_desktop_exit(self):
-        # Replay simultaneous child exits through the actual supervision loop.
-        # Extract only the loop so no X server/session is launched by this unit test.
-        source = ast.parse(Path('/opt/wolf-plasma/session.py').read_text())
-        main = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
-        main.body = [next(node for node in reversed(main.body) if isinstance(node, ast.While))]
-        namespace = {'children': [SimpleNamespace(poll=lambda: -15), SimpleNamespace(poll=lambda: 0)]}
-        exec(compile(ast.Module(body=[main], type_ignores=[]), 'session.py', 'exec'), namespace)
-        self.assertEqual(namespace['main'](), 1)
+    def test_native_compositor_failure_wins_over_clean_desktop_exit(self):
+        with tempfile.TemporaryDirectory() as name, socket.socket(socket.AF_UNIX) as parent:
+            state = Path(name)
+            path = str(state / 'parent')
+            parent.bind(path)
+            (state / 'compositor-exited').write_text('0')
+            self.assertEqual(session.supervise(SimpleNamespace(poll=lambda: 0), state,
+                                              {}, path, 1280, 720, 90), 1)
+
+    def test_parent_loss_and_changed_mode_fail_closed(self):
+        with tempfile.TemporaryDirectory() as name, socket.socket(socket.AF_UNIX) as parent:
+            state = Path(name)
+            path = str(state / 'parent')
+            parent.bind(path)
+            for result in (RuntimeError('parent disconnected'), [
+                    {'width': 1280, 'height': 720, 'refresh_mHz': 60000}]):
+                with self.subTest(result=result), mock.patch.object(session, 'parent_modes') as modes:
+                    if isinstance(result, Exception):
+                        modes.side_effect = result
+                    else:
+                        modes.return_value = result
+                    with self.assertRaises(RuntimeError):
+                        session.supervise(SimpleNamespace(poll=lambda: None), state,
+                                          {}, path, 1280, 720, 90)
+
+    def test_parent_socket_replacement_is_not_adopted(self):
+        with tempfile.TemporaryDirectory() as name, socket.socket(socket.AF_UNIX) as parent, \
+             socket.socket(socket.AF_UNIX) as replacement:
+            state = Path(name)
+            path = state / 'parent'
+            parent.bind(str(path))
+            def replace(_):
+                path.unlink()
+                replacement.bind(str(path))
+                return [{'width': 1280, 'height': 720, 'refresh_mHz': 90000}]
+            with mock.patch.object(session, 'parent_modes', side_effect=replace), \
+                 mock.patch.object(session, 'native_ready', return_value=True), \
+                 mock.patch.object(session.time, 'monotonic', side_effect=[0, 1, 3]), \
+                 mock.patch.object(session.time, 'sleep'):
+                with self.assertRaisesRegex(RuntimeError, 'socket replaced'):
+                    session.supervise(SimpleNamespace(poll=lambda: None), state,
+                                      {}, str(path), 1280, 720, 90)
 
     def run_hook(self, directory, display=None):
         env = os.environ.copy()
@@ -56,17 +93,13 @@ class RuntimeTests(unittest.TestCase):
                                         str(path)], capture_output=True, text=True)
                 self.assertEqual(probe.returncode, 0, probe.stderr)
 
-    def test_private_runtime_and_legacy_socket_directories(self):
+    def test_private_runtime(self):
         with tempfile.TemporaryDirectory() as name:
             result = self.run_hook(Path(name))
             self.assertEqual(result.returncode, 0, result.stderr)
             runtime = Path('/run/user/1001').stat()
             self.assertEqual((runtime.st_uid, runtime.st_gid, stat.S_IMODE(runtime.st_mode)),
                              (1001, 1001, 0o700))
-            for directory in ('/tmp/.X11-unix', '/tmp/.ICE-unix'):
-                with self.subTest(directory=directory):
-                    info = Path(directory).stat()
-                    self.assertEqual((info.st_uid, stat.S_IMODE(info.st_mode)), (0, 0o1777))
 
 
 if __name__ == '__main__':

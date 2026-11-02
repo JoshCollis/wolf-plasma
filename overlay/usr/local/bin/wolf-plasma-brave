@@ -9,10 +9,12 @@ if [[ ${1:-} = --background ]]; then
 fi
 notify() {
     printf '%s\n' "$*"
-    if [[ -n ${DISPLAY:-} ]]; then
+    if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
         kdialog --passivepopup "$*" 10 >/dev/null 2>&1 || true
     fi
 }
+# Native display access only; do not grant the browser an X11 fallback socket.
+flatpak override --user --socket=wayland --nosocket=x11 --nosocket=fallback-x11 com.brave.Browser
 # Do not reinstall intentionally removed Brave after a completed bootstrap.
 [[ ! -e $state/brave-v1 ]] || exit 0
 notify 'Setting up user Flathub and Brave. Desktop remains usable; see ~/.local/state/wolf-plasma/brave-bootstrap.log.'

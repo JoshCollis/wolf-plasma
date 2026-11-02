@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Wolf Plasma user services
+Exec=/opt/wolf-plasma/user-services.sh
+OnlyShowIn=KDE;
+NoDisplay=true

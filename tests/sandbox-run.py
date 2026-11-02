@@ -33,9 +33,15 @@ version = json.loads(response.read())["ApiVersion"]
 runner = tomllib.loads((root / "examples/wolf-plasma.toml").read_text())["apps"][0]["runner"]
 config = json.loads(runner["base_create_json"])
 config["HostConfig"]["Binds"] = [f"{root / 'tests'}:/tests:ro"]
+config['HostConfig']['Memory'] = 3 * 1024**3
+config['HostConfig']['NanoCpus'] = 2_000_000_000
+# Parent verified this option is already present in the real Wolf profiles.
+security = config['HostConfig'].setdefault('SecurityOpt', [])
+if 'label=disable' not in security:
+    security.append('label=disable')
 config.update(Image=sys.argv[1] if len(sys.argv) > 1 else "wolf-plasma:local",
-              Cmd=['exec gosu "$UNAME" dbus-run-session -- bash -e -c '
-                   '"wolf-plasma-brave; bash /tests/sandbox.sh"'],
+               Cmd=['exec gosu "$UNAME" dbus-run-session -- bash -e -c '
+                    '"unshare -Ur true; wolf-plasma-brave; bash /tests/sandbox.sh"'],
               AttachStdout=True, AttachStderr=True)
 engine.request("POST", f"/v{version}/containers/create", json.dumps(config),
                {"Content-Type": "application/json"})

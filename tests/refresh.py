@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Refresh contract tests; no user home, compositor or desktop required."""
-import ast
 import importlib.util
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / 'overlay/opt/wolf-plasma/refresh.py'
@@ -91,29 +91,26 @@ class RefreshTests(unittest.TestCase):
                 if errors:
                     raise errors[0]
 
-    def test_actual_session_launch_passes_rate_after_parent_assertion(self):
+    def test_actual_session_rejects_mismatched_parent_before_launch(self):
         source_path = ROOT / 'overlay/opt/wolf-plasma/session.py'
         if not source_path.exists():
             source_path = Path('/opt/wolf-plasma/session.py')
-        source = ast.parse(source_path.read_text())
-        main = next(n for n in source.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
-        start = next(i for i, n in enumerate(main.body) if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'width' for t in n.targets))
-        end = next(i for i in range(start, len(main.body)) if isinstance(main.body[i], ast.Expr) and 'children.append' in ast.unparse(main.body[i]))
-        main.body = main.body[start:end + 1]
-        events = []
-        from types import SimpleNamespace
-        namespace = {'env': {'GAMESCOPE_REFRESH': '90', 'XAUTHORITY': '/private/auth'}, 'xenv': {}, 'parent': '/parent', 'children': [],
-                     'negotiated_refresh': lambda env: 90,
-                     'parent_modes': lambda path: events.append('probe') or [],
-                     'require_parent_mode': lambda *args: events.append('assert'),
-                     'subprocess': SimpleNamespace(Popen=lambda argv, **kwargs: events.append(argv))}
-        exec(compile(ast.Module(body=[main], type_ignores=[]), 'session.py', 'exec'), namespace)
-        namespace['main']()
-        self.assertEqual(events[:2], ['probe', 'assert'])
-        argv = events[-1]
-        self.assertEqual(argv[argv.index('-fakescreenfps') + 1], '90')
-        self.assertIn('-auth', argv)
-        self.assertNotIn('-ac', argv)
+        sys.path.insert(0, str(source_path.parent))
+        import session
+        with tempfile.TemporaryDirectory() as name, socket.socket(socket.AF_UNIX) as parent:
+            path = str(Path(name) / 'parent')
+            parent.bind(path)
+            env = dict(os.environ, XDG_RUNTIME_DIR=name, WAYLAND_DISPLAY=path,
+                       GAMESCOPE_WIDTH='1280', GAMESCOPE_HEIGHT='720', GAMESCOPE_REFRESH='90')
+            with mock.patch.dict(os.environ, env, clear=True), \
+                 mock.patch.object(session, 'GpgLifecycle'), \
+                 mock.patch.object(session, 'parent_modes', return_value=[{
+                     'width': 1280, 'height': 720, 'refresh_mHz': 60000}]), \
+                 mock.patch.object(session.subprocess, 'Popen') as launch:
+                with self.assertRaisesRegex(RuntimeError, 'parent/request mismatch'):
+                    session.main()
+                launch.assert_not_called()
+            session.gpg_lifecycle = None
 
 
 if __name__ == '__main__':

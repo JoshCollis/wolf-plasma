@@ -14,7 +14,5 @@ if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     fi
     chown -- "${PUID:-1000}:${PGID:-1000}" "$WOLF_PLASMA_PARENT_WAYLAND"
 fi
-# Xwayland/ICE cannot create their root-owned sticky directories after gosu.
-install -d -m 1777 /tmp/.X11-unix /tmp/.ICE-unix
 export XDG_RUNTIME_DIR="/run/user/${PUID:-1000}"
 install -d -m 0700 -o "${PUID:-1000}" -g "${PGID:-1000}" "$XDG_RUNTIME_DIR"
