@@ -14,10 +14,11 @@ The private patched Xwayland server and its build/source assets are gone.
 
 - Dracula Plasma, GTK and Kvantum themes, Dracula window decorations and Papirus-Dark icons.
 - Konsole with Fira Code, Bash completion, a coloured Git prompt and Fastfetch.
-- Dolphin, Kate, Ark, Plasma Settings and audio controls.
+- Dolphin, Kate, Ark, Plasma Settings, System Monitor, Info Center / About This System and audio controls.
 - ClusterCut 0.4.4, autostarting natively in the tray for clipboard sync.
 - Discover with Flathub; Brave installs as a user Flatpak on first launch.
 - Git, Python, Node.js/npm, GCC/G++, CMake, GDB, network diagnostics and archive tools.
+- Nethogs and lm_sensors, including `sensors-detect`, for monitoring prerequisites.
 
 GTK 4/libadwaita applications use dark mode but may not match the Dracula theme.
 Flatpak appearance depends on the application's runtime.
@@ -102,6 +103,20 @@ is hidden by default; `Alt+M` restores it.
 Brave setup runs in the background. If it fails, run `wolf-plasma-brave` to retry.
 Its log is `~/.local/state/wolf-plasma/brave-bootstrap.log`. Manage application
 updates through Discover or `flatpak update --user`.
+
+## System monitoring
+
+KDE System Monitor (`plasma-systemmonitor`) and Info Center / About This System
+(`kinfocenter`) are included. Mission Center remains an optional user Flatpak;
+its Nethogs and lm_sensors prerequisites are already installed. Nethogs has only
+`cap_net_raw=ep` for traffic capture within the container, so ordinary monitoring
+does not require Mission Center's **Additional Setup** button.
+
+Skip that button in this container: the [upstream setup script](https://gitlab.com/mission-center-devs/gng/-/blob/main/platform-linux/bin/missioncenter-magpie-setup-linux)
+also reloads powercap udev rules and runs `sensors-detect --auto`. The image does
+neither. Hardware/sensor visibility, other users' process details and systemd
+service management remain limited by the container's existing permissions and
+devices; installing these tools does not grant host access or discover hardware.
 
 ## Clipboard sync
 

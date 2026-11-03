@@ -62,8 +62,12 @@ RUN source /etc/os-release && test "$ID" = fedora && \
 COPY --from=themes /assets/ /usr/share/
 COPY overlay/ /
 COPY LICENSE THIRD-PARTY.md /usr/share/doc/wolf-plasma/
+# Mission Center's full setup probes hardware and reloads udev. Only give
+# Nethogs container-local capture, not its broader optional upstream caps.
 RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \
-    dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra /tmp/clustercut.rpm && dnf clean all && \
+    dnf install -y --setopt=install_weak_deps=False ostree bash-completion fastfetch fira-code-fonts gnupg2 pinentry-qt kwalletmanager5 kleopatra \
+      plasma-systemmonitor kinfocenter nethogs lm_sensors /tmp/clustercut.rpm && dnf clean all && \
+    setcap cap_net_raw=ep /usr/bin/nethogs && \
     ostree --repo=/var/lib/flatpak/repo init --mode=bare-user-only && \
     chmod 0755 /opt/gow/startup.sh /opt/wolf-plasma/*.sh /opt/wolf-plasma/*.py \
       /usr/local/bin/wolf-plasma-brave /usr/local/bin/kwin_wayland* /etc/cont-init.d/05-plasma-runtime.sh \
