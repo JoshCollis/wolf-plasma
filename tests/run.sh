@@ -36,6 +36,8 @@ python3 "$root/tests/gpg-crash.py" "$image"
 docker run --rm --network none -v "$root/tests:/tests:ro" "$image" 'bash /tests/shell.sh'
 docker run --rm --network none -v "$root/tests:/tests:ro" "$image" \
     'exec gosu "$UNAME" dbus-run-session -- bash /tests/seed-native.sh'
+docker run --rm --network none -v "$root/tests:/tests:ro" "$image" \
+    'exec gosu "$UNAME" dbus-run-session -- bash /tests/seed-decoration.sh'
 docker run --rm --network none --memory 3g --cpus 3 "${device_args[@]}" -v "$root/tests:/tests:ro" "$image" \
     'exec bash /tests/with-udmabuf.sh python3 /tests/native-production-path.py'
 docker run --rm --network none --memory 1g --cpus 1 "${device_args[@]}" -v "$root/tests:/tests:ro" "$image" \

@@ -100,6 +100,14 @@ Theme and desktop defaults apply to fresh profiles. Later launches preserve user
 settings; existing Bash configuration files are not replaced. Konsole's menu bar
 is hidden by default; `Alt+M` restores it.
 
+Window decoration buttons default to Close, Minimize, Maximize on the left and
+none on the right (`kwinrc`, `[org.kde.kdecoration2]`: `ButtonsOnLeft=XIA`,
+`ButtonsOnRight=` explicitly empty). Existing homes receive this layout once on
+their next session start, without changing their decoration library, theme,
+icons or other preferences. The `decoration-buttons-v1` marker under
+`${XDG_STATE_HOME:-~/.local/state}/wolf-plasma` preserves subsequent user layout
+changes. Fresh homes receive the layout after the existing theme defaults.
+
 Brave setup runs in the background. If it fails, run `wolf-plasma-brave` to retry.
 Its log is `~/.local/state/wolf-plasma/brave-bootstrap.log`. Manage application
 updates through Discover or `flatpak update --user`.

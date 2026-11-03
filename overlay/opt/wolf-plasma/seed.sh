@@ -20,7 +20,18 @@ if [[ ! -e $state/native-v1 ]]; then
     fi
     touch "$state/native-v1"
 fi
-[[ ! -e $state/defaults-v1 ]] || exit 0
+# Independent of theme defaults: migrate existing homes once, then preserve edits.
+seed_decoration_buttons() {
+    if [[ ! -e $state/decoration-buttons-v1 ]]; then
+        kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnLeft XIA
+        kwriteconfig6 --file kwinrc --group org.kde.kdecoration2 --key ButtonsOnRight ''
+        touch "$state/decoration-buttons-v1"
+    fi
+}
+if [[ -e $state/defaults-v1 ]]; then
+    seed_decoration_buttons
+    exit 0
+fi
 fresh=false
 [[ -e $config/kdeglobals ]] || fresh=true
 # The classic startup requirement is a safe key update, not a home replacement.
@@ -60,6 +71,8 @@ if $fresh; then
         mkdir -p "$HOME/$dir"
     done
 fi
+# Follow global theme application so fresh homes receive the same layout.
+seed_decoration_buttons
 # Atomic completion marker: later launches preserve preferences/layouts and app data.
 touch "$state/defaults-v1.tmp"
 mv "$state/defaults-v1.tmp" "$state/defaults-v1"
