@@ -77,7 +77,7 @@ configuration. Set the image name and an independent persistent home directory.
 For profile-based configurations, place the application under `profiles.apps`.
 
 Wolf supplies the Wayland socket, audio, input devices and GPU libraries. The host
-must provide `/dev/fuse` for Flatpak document portals.
+must provide `/dev/fuse` for Flatpak document portals and FUSE-mounted AppImages.
 
 The example grants capabilities and relaxes seccomp/AppArmor for nested Flatpak
 sandboxes. It is intended for a trusted desktop, not isolation between untrusted
@@ -140,6 +140,15 @@ here; native-client feature parity is not implied). See NVIDIA's
 [Linux launch troubleshooting](https://nvidia.custhelp.com/app/answers/detail/a_id/5737)
 and [current system requirements](https://www.nvidia.com/en-us/geforce-now/system-reqs/#linux).
 No account login or game-streaming acceptance has been performed.
+
+### AppImages
+
+Older AppImage runtimes require FUSE 2's `libfuse.so.2`, even when FUSE 3 is
+installed. The image explicitly includes Fedora's `fuse` and `fuse-libs` packages,
+as recommended by [AppImage's FUSE guidance](https://github.com/AppImage/AppImageKit/wiki/FUSE).
+Mounting also requires the existing `/dev/fuse` access from the Wolf deployment;
+these packages do not change container permissions or security policy. Successful
+mounting does not guarantee application-specific Wayland or sandbox compatibility.
 
 ## System monitoring
 

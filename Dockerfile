@@ -44,7 +44,7 @@ RUN source /etc/os-release && test "$ID" = fedora && \
       konsole dolphin kate ark kde-gtk-config \
       xdg-desktop-portal-kde xdg-desktop-portal-gtk \
       kvantum kvantum-qt5 papirus-icon-theme papirus-icon-theme-dark breeze-cursor-theme \
-      flatpak bubblewrap dbus-daemon dbus-tools xdg-utils desktop-file-utils \
+      flatpak bubblewrap fuse fuse-libs dbus-daemon dbus-tools xdg-utils desktop-file-utils \
       shared-mime-info glibc-langpack-en at-spi2-core gtk3 gtk4 \
       libglvnd-glx libglvnd-egl vulkan-loader pulseaudio-utils \
       util-linux tini libcap wayland-utils \

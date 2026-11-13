@@ -8,6 +8,9 @@ test -z "$(getcap /usr/bin/kwin_wayland)"
 test "$(command -v kwin_wayland_wrapper)" = /usr/local/bin/kwin_wayland_wrapper
 test "$(command -v kwin_wayland)" = /usr/local/bin/kwin_wayland
 test ! -e /etc/dnf/versionlock.toml
+# Older AppImage runtimes dlopen FUSE 2; the helper and FUSE 3 are insufficient.
+rpm -q fuse fuse-libs
+python3 -c 'import ctypes; ctypes.CDLL("libfuse.so.2")'
 for hook in 10-setup_user 15-setup_devices 30-nvidia; do
     test -f "/etc/cont-init.d/$hook.sh" || { printf 'Missing inherited GoW hook: %s\n' "$hook" >&2; exit 1; }
 done
