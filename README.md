@@ -112,6 +112,35 @@ Brave setup runs in the background. If it fails, run `wolf-plasma-brave` to retr
 Its log is `~/.local/state/wolf-plasma/brave-bootstrap.log`. Manage application
 updates through Discover or `flatpak update --user`.
 
+If a newly installed Flatpak appears without an icon, run
+`wolf-plasma-refresh-apps` in the desktop's Konsole. KDE can retain the icon-size
+directories that existed before installation, even when the exported PNG and
+desktop entry are valid. This bounded refresh rebuilds the application catalogue
+and sends KDE's icon-change notification; it does not restart Plasma, change your
+theme, delete caches or modify Flatpak packages. Brave bootstrap also runs it
+after installation. Other installers may need this manual refresh; there is no
+background watcher.
+
+### Official NVIDIA GeForce NOW
+
+The official `com.nvidia.geforcenow` Flatpak is not currently verified to work in
+this strict native-Wayland desktop. The tested master deployment
+`5a43907ba03d2f6b7e211fe895c50b14f8ae82e98c0dd1132b3cf0726dbb243c`
+started its SDL/Vulkan shell on Wayland but failed in CEF with
+`Missing X server or $DISPLAY`, leaving processes running without a window.
+Its launcher does not forward additional arguments; even a diagnostic direct
+launch with `--ozone-platform=wayland` still selected X11. The packaged
+`nv-use-angle-gl-egl` configuration path forces CEF's Ozone platform to X11.
+An icon refresh does **not** repair this separate launch failure.
+
+No proprietary files, sandbox settings, drivers or desktop display policy are
+patched here. A vendor fix allowing native CEF Wayland is needed for this build.
+Alternatively, evaluate NVIDIA's supported browser client separately (not tested
+here; native-client feature parity is not implied). See NVIDIA's
+[Linux launch troubleshooting](https://nvidia.custhelp.com/app/answers/detail/a_id/5737)
+and [current system requirements](https://www.nvidia.com/en-us/geforce-now/system-reqs/#linux).
+No account login or game-streaming acceptance has been performed.
+
 ## System monitoring
 
 KDE System Monitor (`plasma-systemmonitor`) and Info Center / About This System

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Rebuild launchers and invalidate in-process KDE icon themes, without restarting
+# Plasma, changing the selected theme or deleting application/user caches.
+set -euo pipefail
+timeout 30 kbuildsycoca6 --noincremental
+dbus-send --session --type=signal /KIconLoader org.kde.KIconLoader.iconChanged int32:0

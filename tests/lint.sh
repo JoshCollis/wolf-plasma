@@ -3,7 +3,8 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 mapfile -t scripts < <(printf '%s\n' "$root"/tests/*.sh "$root"/overlay/opt/wolf-plasma/*.sh \
     "$root"/overlay/opt/gow/startup.sh "$root"/overlay/etc/cont-init.d/*.sh \
-    "$root"/overlay/usr/local/bin/wolf-plasma-brave "$root"/overlay/usr/local/bin/kwin_wayland_wrapper)
+    "$root"/overlay/usr/local/bin/wolf-plasma-brave "$root"/overlay/usr/local/bin/wolf-plasma-refresh-apps \
+    "$root"/overlay/usr/local/bin/kwin_wayland_wrapper)
 for script in "${scripts[@]}"; do bash -n "$script"; done
 docker run --rm -v "$root:/src:ro" koalaman/shellcheck:v0.10.0 \
     --severity=warning "${scripts[@]/$root/\/src}"

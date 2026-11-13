@@ -30,6 +30,8 @@ docker run --rm --network none --entrypoint bash \
     -v "$root/tests:/tests:ro" "$image" /tests/image.sh
 docker run --rm --network none --entrypoint python3 \
     -v "$root/tests:/tests:ro" "$image" /tests/runtime.py
+docker run --rm --network none --entrypoint python3 -e TMPDIR=/tmp \
+    -v "$root/tests:/tests:ro" "$image" /tests/flatpak-icons.py
 docker run --rm --network none --entrypoint python3 -e TMPDIR=/home/retro \
     -v "$root/tests:/tests:ro" "$image" /tests/gpg-lifecycle.py
 python3 "$root/tests/gpg-crash.py" "$image"

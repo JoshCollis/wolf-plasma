@@ -70,7 +70,8 @@ RUN --mount=from=themes,source=/tmp/clustercut.rpm,target=/tmp/clustercut.rpm \
     setcap cap_net_raw=ep /usr/bin/nethogs && \
     ostree --repo=/var/lib/flatpak/repo init --mode=bare-user-only && \
     chmod 0755 /opt/gow/startup.sh /opt/wolf-plasma/*.sh /opt/wolf-plasma/*.py \
-      /usr/local/bin/wolf-plasma-brave /usr/local/bin/kwin_wayland* /etc/cont-init.d/05-plasma-runtime.sh \
+      /usr/local/bin/wolf-plasma-brave /usr/local/bin/wolf-plasma-refresh-apps \
+      /usr/local/bin/kwin_wayland* /etc/cont-init.d/05-plasma-runtime.sh \
       /etc/cont-init.d/40-plasma-dbus.sh /etc/cont-init.d/45-plasma-shell.sh && \
     chmod 0644 /opt/wolf-plasma/Dracula.colorscheme /opt/wolf-plasma/Dracula.profile && \
     desktop-file-validate /usr/share/applications/wolf-plasma-brave.desktop && \

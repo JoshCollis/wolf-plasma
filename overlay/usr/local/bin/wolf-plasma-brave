@@ -29,6 +29,9 @@ else
 fi
 if timeout 1800 flatpak install --user --noninteractive flathub com.brave.Browser; then
     touch "$state/brave-v1"
+    if ! wolf-plasma-refresh-apps; then
+        notify 'Application/icon refresh failed; retry wolf-plasma-refresh-apps in Konsole.'
+    fi
     notify 'Brave is ready in the application menu (user Flatpak).'
 else
     notify 'Brave setup failed/offline. Run wolf-plasma-brave in Konsole or use Retry Brave Setup in the menu.'
