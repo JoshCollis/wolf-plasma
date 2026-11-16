@@ -35,6 +35,7 @@ LABEL org.opencontainers.image.title="wolf-plasma" \
       org.opencontainers.image.base.digest=${BASE_DIGEST}
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # Use only this base's release repositories. Fail closed at its declared EOL.
+# PySide6 is required by the mandatory Qt/KDE rendered-icon regression.
 RUN source /etc/os-release && test "$ID" = fedora && \
     test -n "$SUPPORT_END" && test "$(date -u +%F)" '<' "$SUPPORT_END" && \
     dnf upgrade -y --refresh --setopt=install_weak_deps=False && \
@@ -51,7 +52,7 @@ RUN source /etc/os-release && test "$ID" = fedora && \
       ncdu iputils traceroute openssh-clients git curl wget jq ripgrep tmux nano less \
       rsync bind-utils iproute procps-ng lsof strace file diffutils patch \
       tar gzip bzip2 xz zstd unzip zip 7zip \
-      python3 python3-pip nodejs npm gcc gcc-c++ make cmake pkgconf-pkg-config gdb && \
+      python3 python3-pip python3-pyside6 nodejs npm gcc gcc-c++ make cmake pkgconf-pkg-config gdb && \
     dnf clean all && \
     setcap -r /usr/bin/kwin_wayland && \
     test -z "$(getcap /usr/bin/kwin_wayland)" && \
